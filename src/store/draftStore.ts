@@ -17,37 +17,61 @@ interface Store {
   opponentReady: boolean
 
   draft: DraftState
+  past: DraftState[]
+  future: DraftState[]
 
   setMySide: (s: Side | null) => void
   setOpponentReady: (b: boolean) => void
   setPhase: (p: DraftPhase) => void
+  /** apply a remote draft state without recording history (replication) */
   applyDraft: (next: DraftState) => void
   reset: () => void
 
-  // local actions
-  pickHero: (heroId: number) => void // applies action for current step
+  // local actions (record history)
+  pickHero: (heroId: number) => void
   assignLane: (side: Side, heroId: number, a: LaneAssignment | undefined) => void
   finishAssigning: () => void
   loadDraft: (next: DraftState) => void
+
+  // history controls
+  undo: () => void
+  redo: () => void
+  canUndo: () => boolean
+  canRedo: () => boolean
+}
+
+const HIST_LIMIT = 50
+
+function pushHistory(past: DraftState[], current: DraftState): DraftState[] {
+  const next = [...past, current]
+  if (next.length > HIST_LIMIT) next.shift()
+  return next
 }
 
 export const useDraftStore = create<Store>((set, get) => ({
   mySide: null,
   opponentReady: false,
   draft: initialDraft,
+  past: [],
+  future: [],
 
   setMySide: (s) => set({ mySide: s }),
   setOpponentReady: (b) => set({ opponentReady: b }),
-  setPhase: (p) => set((st) => ({ draft: { ...st.draft, phase: p } })),
+  setPhase: (p) =>
+    set((st) => ({
+      past: pushHistory(st.past, st.draft),
+      future: [],
+      draft: { ...st.draft, phase: p },
+    })),
   applyDraft: (next) => set({ draft: next }),
-  reset: () => set({ draft: initialDraft, opponentReady: false }),
+  reset: () =>
+    set({ draft: initialDraft, past: [], future: [], opponentReady: false }),
 
   pickHero: (heroId) => {
-    const { draft } = get()
+    const { draft, past } = get()
     if (draft.phase !== 'drafting') return
     const action = CM_SEQUENCE[draft.step]
     if (!action) return
-    // prevent dupes
     const all = [
       ...draft.picks.radiant,
       ...draft.picks.dire,
@@ -74,11 +98,15 @@ export const useDraftStore = create<Store>((set, get) => ({
     if (next.step >= CM_SEQUENCE.length) {
       next.phase = 'assigning'
     }
-    set({ draft: next })
+    set({
+      draft: next,
+      past: pushHistory(past, draft),
+      future: [],
+    })
   },
 
   assignLane: (side, heroId, a) => {
-    const { draft } = get()
+    const { draft, past } = get()
     const sideAssign = { ...draft.assignments[side] }
     if (a) sideAssign[heroId] = a
     else delete sideAssign[heroId]
@@ -87,13 +115,49 @@ export const useDraftStore = create<Store>((set, get) => ({
         ...draft,
         assignments: { ...draft.assignments, [side]: sideAssign },
       },
+      past: pushHistory(past, draft),
+      future: [],
     })
   },
 
   finishAssigning: () => {
-    const { draft } = get()
-    set({ draft: { ...draft, phase: 'verdict' } })
+    const { draft, past } = get()
+    set({
+      draft: { ...draft, phase: 'verdict' },
+      past: pushHistory(past, draft),
+      future: [],
+    })
   },
 
-  loadDraft: (next) => set({ draft: next }),
+  loadDraft: (next) =>
+    set((st) => ({
+      draft: next,
+      past: pushHistory(st.past, st.draft),
+      future: [],
+    })),
+
+  undo: () => {
+    const { past, draft, future } = get()
+    if (past.length === 0) return
+    const prev = past[past.length - 1]
+    set({
+      draft: prev,
+      past: past.slice(0, -1),
+      future: [draft, ...future],
+    })
+  },
+
+  redo: () => {
+    const { past, draft, future } = get()
+    if (future.length === 0) return
+    const next = future[0]
+    set({
+      draft: next,
+      past: pushHistory(past, draft),
+      future: future.slice(1),
+    })
+  },
+
+  canUndo: () => get().past.length > 0,
+  canRedo: () => get().future.length > 0,
 }))

@@ -56,8 +56,9 @@ export interface DraftSlot {
   heroId: number | null
 }
 
-// Standard Captains Mode 22-action sequence (7 bans + 5 picks per side, alternating in groups)
-// Source: classic CM order
+// Standard Captains Mode 24-action sequence (14 bans + 10 picks).
+// Phase split: 4 bans → 4 picks → 6 bans → 4 picks → 4 bans → 2 picks
+// Side order (each ban phase starts with Radiant; picks snake): see entries below.
 export const CM_SEQUENCE: DraftAction[] = [
   // Ban phase 1 (4 bans)
   { kind: 'ban', side: 'radiant' },

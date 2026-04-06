@@ -20,23 +20,22 @@ export function useRoom(roomId: string, asHost: boolean) {
     const onConn = (conn: DataConnection) => {
       setStatus('connected')
       useDraftStore.getState().setOpponentReady(true)
-      // when guest connects, host immediately sends current state to sync
+
+      // when guest connects, host syncs draft state and side (if already chosen)
       if (asHost) {
-        const draft = useDraftStore.getState().draft
-        conn.send({ type: 'state', draft } satisfies PeerMessage)
+        const st = useDraftStore.getState()
+        conn.send({ type: 'state', draft: st.draft } satisfies PeerMessage)
+        if (st.mySide) {
+          conn.send({ type: 'hello', side: st.mySide } satisfies PeerMessage)
+        }
       }
+
       conn.on('data', (raw) => {
         const msg = raw as PeerMessage
         if (msg.type === 'state') {
           suppressNext.current = true
           useDraftStore.getState().applyDraft(msg.draft)
-        } else if (msg.type === 'side-set') {
-          // opponent picked a side, set ours to opposite
-          const opp: Side = msg.side === 'radiant' ? 'dire' : 'radiant'
-          if (!useDraftStore.getState().mySide) {
-            useDraftStore.getState().setMySide(opp)
-          }
-        } else if (msg.type === 'hello') {
+        } else if (msg.type === 'side-set' || msg.type === 'hello') {
           // opponent says their side; ours is opposite
           const opp: Side = msg.side === 'radiant' ? 'dire' : 'radiant'
           useDraftStore.getState().setMySide(opp)
@@ -75,6 +74,20 @@ export function useRoom(roomId: string, asHost: boolean) {
         return
       }
       handleRef.current?.send({ type: 'state', draft: state.draft })
+    })
+  }, [])
+
+  // also re-broadcast my side whenever it changes (handles host picking side
+  // before guest connects → message will simply no-op until conn open)
+  useEffect(() => {
+    let prevSide: Side | null = useDraftStore.getState().mySide
+    return useDraftStore.subscribe((s) => {
+      if (s.mySide !== prevSide) {
+        prevSide = s.mySide
+        if (s.mySide) {
+          handleRef.current?.send({ type: 'hello', side: s.mySide })
+        }
+      }
     })
   }, [])
 
