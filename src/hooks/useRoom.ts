@@ -13,11 +13,13 @@ export function useRoom(roomId: string, asHost: boolean) {
 
   useEffect(() => {
     if (!roomId) return
+    console.log('[useRoom] init', { roomId, asHost })
     setStatus(asHost ? 'waiting' : 'connecting')
     setError(null)
 
     const pushFullState = () => {
       const st = useDraftStore.getState()
+      console.log('[useRoom] pushFullState', { asHost, mySide: st.mySide, phase: st.draft.phase })
       // Host is the source of truth for the draft state — only host pushes
       // the draft itself. Both sides push their own side if known.
       if (asHost) {
@@ -67,6 +69,7 @@ export function useRoom(roomId: string, asHost: boolean) {
         useDraftStore.getState().setOpponentReady(false)
       },
       onMessage: (msg: PeerMessage) => {
+        console.log('[useRoom] onMessage', msg)
         if (msg.type === 'ready') {
           // Guest just announced — host responds with full state.
           if (asHost) pushFullState()

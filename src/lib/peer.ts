@@ -60,19 +60,26 @@ export function createRoom(roomId: string, cb: RoomCallbacks): RoomHandle {
   // action loosely and re-cast on the receiving side.
   const [sendMsg, getMsg] = room.makeAction('msg')
 
-  getMsg((data) => {
+  getMsg((data, peerId) => {
+    console.log('[peer] recv', peerId, data)
     cb.onMessage(data as unknown as PeerMessage)
   })
-  room.onPeerJoin(() => cb.onPeerJoin())
-  room.onPeerLeave(() => cb.onPeerLeave())
+  room.onPeerJoin((peerId) => {
+    console.log('[peer] join', peerId, 'active peers:', Object.keys(room.getPeers()))
+    cb.onPeerJoin()
+  })
+  room.onPeerLeave((peerId) => {
+    console.log('[peer] leave', peerId)
+    cb.onPeerLeave()
+  })
 
   return {
     send: (msg) => {
-      try {
-        sendMsg(msg as unknown as Parameters<typeof sendMsg>[0])
-      } catch {
-        // sending before any peer has joined throws — safe to ignore
-      }
+      const peers = Object.keys(room.getPeers())
+      console.log('[peer] send', msg, 'to peers:', peers)
+      sendMsg(msg as unknown as Parameters<typeof sendMsg>[0]).catch((e) => {
+        console.warn('[peer] send failed', e)
+      })
     },
     destroy: () => {
       room.leave()
