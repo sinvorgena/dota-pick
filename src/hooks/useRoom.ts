@@ -19,7 +19,7 @@ export function useRoom(roomId: string, asHost: boolean) {
     const pushFullState = () => {
       const st = useDraftStore.getState()
       // Host is the source of truth for the draft state — only host pushes
-      // the draft itself when a peer joins. Both sides push their own side.
+      // the draft itself. Both sides push their own side if known.
       if (asHost) {
         handleRef.current?.send({ type: 'state', draft: st.draft })
       }
@@ -28,19 +28,49 @@ export function useRoom(roomId: string, asHost: boolean) {
       }
     }
 
+    // Retry sending until either we hit max attempts or peer leaves.
+    // Useful because trystero's onPeerJoin can fire a beat before the
+    // WebRTC data channel is fully open in both directions, causing the
+    // first message to be silently dropped.
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
+    const startSyncRetries = () => {
+      let attempt = 0
+      const tick = () => {
+        if (!handleRef.current) return
+        pushFullState()
+        attempt += 1
+        if (attempt < 5) {
+          retryTimer = setTimeout(tick, 400)
+        }
+      }
+      tick()
+    }
+
     const room = createRoom(roomId, {
       onPeerJoin: () => {
         setStatus('connected')
         useDraftStore.getState().setOpponentReady(true)
-        // small delay so trystero has finished wiring its data channel
-        setTimeout(pushFullState, 50)
+        // Joining peer announces itself; existing peer responds when it
+        // receives the 'ready' beacon (channel is definitely open by then).
+        if (!asHost) {
+          setTimeout(() => handleRef.current?.send({ type: 'ready' }), 100)
+        }
+        // Belt-and-suspenders: also push our state with retries.
+        startSyncRetries()
       },
       onPeerLeave: () => {
+        if (retryTimer) {
+          clearTimeout(retryTimer)
+          retryTimer = null
+        }
         setStatus(asHost ? 'waiting' : 'connecting')
         useDraftStore.getState().setOpponentReady(false)
       },
       onMessage: (msg: PeerMessage) => {
-        if (msg.type === 'state') {
+        if (msg.type === 'ready') {
+          // Guest just announced — host responds with full state.
+          if (asHost) pushFullState()
+        } else if (msg.type === 'state') {
           suppressNext.current = true
           useDraftStore.getState().applyDraft(msg.draft)
         } else if (msg.type === 'hello' || msg.type === 'side-set') {
@@ -58,6 +88,7 @@ export function useRoom(roomId: string, asHost: boolean) {
     handleRef.current = room
 
     return () => {
+      if (retryTimer) clearTimeout(retryTimer)
       room.destroy()
       handleRef.current = null
     }
