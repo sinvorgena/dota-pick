@@ -10,6 +10,19 @@ export type PeerMessage =
 
 const PREFIX = 'dota-pick-cd-'
 
+// Public PeerJS broker validates IDs against this regex. The full peer id
+// is `<PREFIX><roomId>` so the room id must be alphanumeric (no `_-`) to
+// avoid producing consecutive separators or trailing separators.
+const VALID_ROOM_ID = /^[A-Za-z0-9]+$/
+
+function assertValidRoomId(roomId: string) {
+  if (!VALID_ROOM_ID.test(roomId)) {
+    throw new Error(
+      `Invalid room id "${roomId}": only letters and digits allowed`,
+    )
+  }
+}
+
 export interface RoomHandle {
   peer: Peer
   /** when host: incoming guest conn; when guest: outgoing conn to host */
@@ -34,6 +47,7 @@ export function createHost(
   onConn: (conn: DataConnection) => void,
   onError: (err: Error) => void,
 ): RoomHandle {
+  assertValidRoomId(roomId)
   const peerId = PREFIX + roomId
   const peer = makePeer(peerId)
   const handle: RoomHandle = {
@@ -68,6 +82,7 @@ export function joinRoom(
   onConn: (conn: DataConnection) => void,
   onError: (err: Error) => void,
 ): RoomHandle {
+  assertValidRoomId(roomId)
   const peer = makePeer() // anonymous
   const handle: RoomHandle = {
     peer,

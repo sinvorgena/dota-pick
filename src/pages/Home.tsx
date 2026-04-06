@@ -1,13 +1,18 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { nanoid } from 'nanoid'
+import { customAlphabet } from 'nanoid'
+
+// lowercase letters + digits only — no `_-`, so the resulting peer id
+// (`<prefix>-<id>`) always passes the public PeerJS broker's validation
+// regex `^[A-Za-z0-9]+(?:[_-][A-Za-z0-9]+)*$`.
+const makeRoomId = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 8)
 
 export default function Home() {
   const navigate = useNavigate()
   const [joinId, setJoinId] = useState('')
 
   const create = () => {
-    const id = nanoid(8).toLowerCase()
+    const id = makeRoomId()
     navigate(`/room/${id}?host=1`)
   }
 
