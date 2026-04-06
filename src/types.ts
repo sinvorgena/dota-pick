@@ -56,40 +56,33 @@ export interface DraftSlot {
   heroId: number | null
 }
 
-// Standard Captains Mode 24-action sequence (14 bans + 10 picks).
-// Phase split: 4 bans → 4 picks → 6 bans → 4 picks → 4 bans → 2 picks
-// Side order (each ban phase starts with Radiant; picks snake): see entries below.
+// Captains Mode 24-action sequence (14 bans + 10 picks).
+// Radiant is first-pick. Numbered comments correspond to slot index 1..24.
 export const CM_SEQUENCE: DraftAction[] = [
-  // Ban phase 1 (4 bans)
-  { kind: 'ban', side: 'radiant' },
-  { kind: 'ban', side: 'dire' },
-  { kind: 'ban', side: 'radiant' },
-  { kind: 'ban', side: 'dire' },
-  // Pick phase 1 (4 picks)
-  { kind: 'pick', side: 'radiant' },
-  { kind: 'pick', side: 'dire' },
-  { kind: 'pick', side: 'dire' },
-  { kind: 'pick', side: 'radiant' },
-  // Ban phase 2 (6 bans)
-  { kind: 'ban', side: 'radiant' },
-  { kind: 'ban', side: 'dire' },
-  { kind: 'ban', side: 'radiant' },
-  { kind: 'ban', side: 'dire' },
-  { kind: 'ban', side: 'radiant' },
-  { kind: 'ban', side: 'dire' },
-  // Pick phase 2 (4 picks)
-  { kind: 'pick', side: 'dire' },
-  { kind: 'pick', side: 'radiant' },
-  { kind: 'pick', side: 'dire' },
-  { kind: 'pick', side: 'radiant' },
-  // Ban phase 3 (4 bans)
-  { kind: 'ban', side: 'radiant' },
-  { kind: 'ban', side: 'dire' },
-  { kind: 'ban', side: 'radiant' },
-  { kind: 'ban', side: 'dire' },
-  // Pick phase 3 (2 picks)
-  { kind: 'pick', side: 'radiant' },
-  { kind: 'pick', side: 'dire' },
+  { kind: 'ban', side: 'radiant' }, // 1
+  { kind: 'ban', side: 'radiant' }, // 2
+  { kind: 'ban', side: 'dire' }, // 3
+  { kind: 'ban', side: 'dire' }, // 4
+  { kind: 'ban', side: 'radiant' }, // 5
+  { kind: 'ban', side: 'dire' }, // 6
+  { kind: 'ban', side: 'dire' }, // 7
+  { kind: 'pick', side: 'radiant' }, // 8
+  { kind: 'pick', side: 'dire' }, // 9
+  { kind: 'ban', side: 'radiant' }, // 10
+  { kind: 'ban', side: 'radiant' }, // 11
+  { kind: 'ban', side: 'dire' }, // 12
+  { kind: 'pick', side: 'dire' }, // 13
+  { kind: 'pick', side: 'radiant' }, // 14
+  { kind: 'pick', side: 'radiant' }, // 15
+  { kind: 'pick', side: 'dire' }, // 16
+  { kind: 'pick', side: 'dire' }, // 17
+  { kind: 'pick', side: 'radiant' }, // 18
+  { kind: 'ban', side: 'radiant' }, // 19
+  { kind: 'ban', side: 'dire' }, // 20
+  { kind: 'ban', side: 'radiant' }, // 21
+  { kind: 'ban', side: 'dire' }, // 22
+  { kind: 'pick', side: 'radiant' }, // 23
+  { kind: 'pick', side: 'dire' }, // 24
 ]
 
 export interface DraftState {
@@ -104,5 +97,11 @@ export interface DraftState {
   }
 }
 
+/** Landscape (256×144). Modern Steam dota_react CDN — covers all heroes. */
 export const heroImg = (shortName: string) =>
   `https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/${shortName}.png`
+
+/** Vertical portrait (71×94). Stratz CDN — covers all heroes including new ones
+ *  (dawnbreaker, marci, muerta, primal_beast, ringmaster, kez). */
+export const heroPortrait = (shortName: string) =>
+  `https://cdn.stratz.com/images/dota2/heroes/${shortName}_vert.png`

@@ -72,7 +72,7 @@ function LaneCard({ result }: { result: RealLaneResult }) {
             <span className="text-xs text-zinc-600 italic">пусто</span>
           )}
           {result.radiantHeroes.map((h) => (
-            <HeroIcon key={h.id} hero={h} size="sm" />
+            <div key={h.id} className="w-12"><HeroIcon hero={h} /></div>
           ))}
         </div>
         <div className="text-xs text-zinc-500">vs</div>
@@ -81,7 +81,7 @@ function LaneCard({ result }: { result: RealLaneResult }) {
             <span className="text-xs text-zinc-600 italic">пусто</span>
           )}
           {result.direHeroes.map((h) => (
-            <HeroIcon key={h.id} hero={h} size="sm" />
+            <div key={h.id} className="w-12"><HeroIcon hero={h} /></div>
           ))}
         </div>
 
@@ -109,9 +109,9 @@ function LaneCard({ result }: { result: RealLaneResult }) {
                   key={i}
                   className="flex items-center gap-2 bg-bg/60 rounded px-2 py-1"
                 >
-                  <HeroIcon hero={p.radiantHero} size="sm" />
+                  <div className="w-10"><HeroIcon hero={p.radiantHero} /></div>
                   <span className="text-zinc-500">vs</span>
-                  <HeroIcon hero={p.direHero} size="sm" />
+                  <div className="w-10"><HeroIcon hero={p.direHero} /></div>
                   <span className="ml-auto">
                     {(p.winrate * 100).toFixed(1)}% radiant ·{' '}
                     {p.games.toLocaleString()} игр

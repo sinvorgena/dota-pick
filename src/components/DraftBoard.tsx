@@ -45,6 +45,10 @@ function resolveSlots(draft: DraftState): ResolvedSlot[] {
 
 export function DraftBoard({ draft, byId }: Props) {
   const slots = resolveSlots(draft)
+  const radiantSlots = slots.filter((s) => s.side === 'radiant')
+  const direSlots = slots.filter((s) => s.side === 'dire')
+  // pair them by sequential index — both sides have 12 actions in CM
+  const rows = radiantSlots.map((r, i) => ({ radiant: r, dire: direSlots[i] }))
 
   return (
     <div className="bg-panel border border-border rounded-xl p-3">
@@ -56,16 +60,33 @@ export function DraftBoard({ draft, byId }: Props) {
           DIRE
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-1.5">
-        {slots.map((slot) => (
-          <SlotCell key={slot.index} slot={slot} byId={byId} />
+      <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 items-center">
+        {rows.map((row, i) => (
+          <SlotRow key={i} radiant={row.radiant} dire={row.dire} byId={byId} />
         ))}
       </div>
     </div>
   )
 }
 
-function SlotCell({
+function SlotRow({
+  radiant,
+  dire,
+  byId,
+}: {
+  radiant: ResolvedSlot
+  dire: ResolvedSlot
+  byId: Record<number, Hero>
+}) {
+  return (
+    <>
+      <SideCellWrapper slot={radiant} byId={byId} />
+      <SideCellWrapper slot={dire} byId={byId} />
+    </>
+  )
+}
+
+function SideCellWrapper({
   slot,
   byId,
 }: {
@@ -76,36 +97,21 @@ function SlotCell({
     slot.side === 'radiant'
       ? 'border-emerald-700/50 bg-emerald-950/30'
       : 'border-rose-700/50 bg-rose-950/30'
-
   const hero = slot.heroId != null ? byId[slot.heroId] : null
   const isBan = slot.kind === 'ban'
-
   return (
-    <>
-      <SideCell
-        active={slot.side === 'radiant'}
-        isCurrent={slot.isCurrent}
-        sideColor={slot.side === 'radiant' ? sideColor : ''}
-        index={slot.index}
-        kind={slot.kind}
-        hero={slot.side === 'radiant' ? hero : null}
-        isBan={isBan}
-      />
-      <SideCell
-        active={slot.side === 'dire'}
-        isCurrent={slot.isCurrent}
-        sideColor={slot.side === 'dire' ? sideColor : ''}
-        index={slot.index}
-        kind={slot.kind}
-        hero={slot.side === 'dire' ? hero : null}
-        isBan={isBan}
-      />
-    </>
+    <SideCell
+      isCurrent={slot.isCurrent}
+      sideColor={sideColor}
+      index={slot.index}
+      kind={slot.kind}
+      hero={hero}
+      isBan={isBan}
+    />
   )
 }
 
 function SideCell({
-  active,
   isCurrent,
   sideColor,
   index,
@@ -113,7 +119,6 @@ function SideCell({
   hero,
   isBan,
 }: {
-  active: boolean
   isCurrent: boolean
   sideColor: string
   index: number
@@ -121,13 +126,15 @@ function SideCell({
   hero: Hero | null
   isBan: boolean
 }) {
-  if (!active) {
-    return <div className="h-12 rounded-md border border-dashed border-zinc-800/50" />
-  }
+  // bans visually smaller (narrower + shorter) than picks; centered in column
+  const heightCls = isBan ? 'h-10' : 'h-14'
+  const widthCls = isBan ? 'w-1/2 mx-auto' : 'w-full'
   return (
     <div
       className={clsx(
-        'h-12 rounded-md border relative overflow-hidden',
+        heightCls,
+        widthCls,
+        'rounded-md border relative overflow-hidden',
         sideColor,
         isCurrent && 'ring-2 ring-amber-400 animate-pulse z-10',
       )}

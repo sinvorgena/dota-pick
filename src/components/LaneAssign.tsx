@@ -39,7 +39,7 @@ export function LaneAssign({
           const a = assignments[id]
           return (
             <div key={id} className="flex items-center gap-3 bg-bg/60 border border-border rounded px-2 py-1.5">
-              <HeroIcon hero={hero} size="sm" />
+              <div className="w-12 shrink-0"><HeroIcon hero={hero} /></div>
               <span className="text-sm flex-1 truncate">{hero.localized_name}</span>
               <select
                 disabled={!editable}

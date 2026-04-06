@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { DraftState, Hero } from '../types'
 import { HeroIcon } from './HeroIcon'
 
@@ -26,24 +26,43 @@ const ATTR_GROUPS: {
 
 export function HeroPool({ heroes, draft, canAct, onPick }: Props) {
   const [q, setQ] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
 
-  // global "/" hotkey to focus search
+  // Global keystroke search — like the Dota client.
+  // Any printable key types into the floating search; Backspace deletes; Esc clears.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const tgt = e.target as HTMLElement
-      if (e.key === '/' && tgt?.tagName !== 'INPUT' && tgt?.tagName !== 'TEXTAREA') {
-        e.preventDefault()
-        inputRef.current?.focus()
-      }
+      const tgt = e.target as HTMLElement | null
+      const inField =
+        tgt &&
+        (tgt.tagName === 'INPUT' ||
+          tgt.tagName === 'TEXTAREA' ||
+          tgt.isContentEditable)
+      if (inField) return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+
       if (e.key === 'Escape') {
-        setQ('')
-        inputRef.current?.blur()
+        if (q) {
+          e.preventDefault()
+          setQ('')
+        }
+        return
+      }
+      if (e.key === 'Backspace') {
+        if (q) {
+          e.preventDefault()
+          setQ((s) => s.slice(0, -1))
+        }
+        return
+      }
+      // single printable char (letters, digits, space, hyphen, etc.)
+      if (e.key.length === 1 && /[\p{L}\p{N} \-']/u.test(e.key)) {
+        e.preventDefault()
+        setQ((s) => s + e.key)
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [q])
 
   const taken = useMemo(() => {
     const s = new Set<number>()
@@ -61,7 +80,8 @@ export function HeroPool({ heroes, draft, canAct, onPick }: Props) {
   }, [heroes])
 
   const ql = q.trim().toLowerCase()
-  const matches = (h: Hero) => !ql || h.localized_name.toLowerCase().includes(ql)
+  const matches = (h: Hero) =>
+    !ql || h.localized_name.toLowerCase().includes(ql)
 
   const handlePick = (id: number) => {
     onPick(id)
@@ -69,69 +89,61 @@ export function HeroPool({ heroes, draft, canAct, onPick }: Props) {
   }
 
   return (
-    <div className="space-y-3">
-      <div className="bg-panel rounded-xl border border-border p-2.5 flex items-center gap-3">
-        <input
-          ref={inputRef}
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Поиск героя… (нажми / для фокуса, Esc — сбросить)"
-          className="flex-1 bg-bg border border-border rounded px-3 py-2 text-sm outline-none focus:border-zinc-500"
-        />
-        {q && (
-          <button
-            onClick={() => setQ('')}
-            className="text-xs text-zinc-500 hover:text-zinc-200 px-2"
-          >
-            очистить
-          </button>
-        )}
+    <>
+      <div className="p-2">
+        <div className="grid grid-cols-4 gap-8">
+          {ATTR_GROUPS.map((g) => {
+            const list = grouped[g.key]
+            if (!list?.length) return <div key={g.key} />
+            return (
+              <div key={g.key} className="min-w-0">
+                <div className="flex items-center gap-2 mb-3">
+                  <img src={g.icon} alt={g.label} className="w-4 h-4" loading="lazy" />
+                  <div
+                    className={`text-[11px] font-bold uppercase tracking-wider ${g.color}`}
+                  >
+                    {g.label}
+                  </div>
+                </div>
+                <div
+                  className="grid gap-2"
+                  style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(48px, 1fr))' }}
+                >
+                  {list.map((h) => {
+                    const isTaken = taken.has(h.id)
+                    const isMatch = matches(h)
+                    const dim = isTaken || (ql.length > 0 && !isMatch)
+                    return (
+                      <HeroIcon
+                        key={h.id}
+                        hero={h}
+                        variant="portrait"
+                        dim={dim}
+                        selectable={canAct && !isTaken && isMatch}
+                        onClick={
+                          canAct && !isTaken && isMatch
+                            ? () => handlePick(h.id)
+                            : undefined
+                        }
+                        title={`${h.localized_name} · power ${h.lanePower}`}
+                      />
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-        {ATTR_GROUPS.map((g) => {
-          const list = grouped[g.key]
-          if (!list?.length) return null
-          return (
-            <div
-              key={g.key}
-              className="bg-panel border border-border rounded-xl p-3"
-            >
-              <div className="flex items-center gap-2 mb-2.5">
-                <img
-                  src={g.icon}
-                  alt={g.label}
-                  className="w-6 h-6"
-                  loading="lazy"
-                />
-                <div className={`text-sm font-bold uppercase tracking-wider ${g.color}`}>
-                  {g.label}
-                </div>
-                <div className="text-xs text-zinc-600 ml-auto">{list.length}</div>
-              </div>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(64px,1fr))] gap-1.5">
-                {list.map((h) => {
-                  const isTaken = taken.has(h.id)
-                  const isMatch = matches(h)
-                  const dim = isTaken || (ql.length > 0 && !isMatch)
-                  return (
-                    <HeroIcon
-                      key={h.id}
-                      hero={h}
-                      dim={dim}
-                      selectable={canAct && !isTaken && isMatch}
-                      onClick={
-                        canAct && !isTaken && isMatch ? () => handlePick(h.id) : undefined
-                      }
-                      title={`${h.localized_name} · power ${h.lanePower}`}
-                    />
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
+      {/* Floating search indicator (Dota-style) */}
+      {q && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-bg/95 backdrop-blur border border-amber-500/60 rounded-full px-5 py-2 shadow-2xl flex items-center gap-3">
+          <span className="text-xs uppercase text-zinc-500 tracking-wider">Поиск</span>
+          <span className="text-base font-semibold text-amber-300">{q}</span>
+          <span className="text-[10px] text-zinc-600">Esc — сброс</span>
+        </div>
+      )}
+    </>
   )
 }
