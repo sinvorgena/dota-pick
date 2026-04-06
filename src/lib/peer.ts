@@ -49,7 +49,36 @@ export function createRoom(roomId: string, cb: RoomCallbacks): RoomHandle {
 
   let room: Room
   try {
-    room = trysteroJoin({ appId: APP_ID }, roomId)
+    room = trysteroJoin(
+      {
+        appId: APP_ID,
+        // STUN alone fails when either peer sits behind a symmetric NAT
+        // (mobile carriers, many corporate/home routers). Add free TURN
+        // relays from Open Relay Project so traffic can fall back to TURN.
+        rtcConfig: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            {
+              urls: 'turn:openrelay.metered.ca:80',
+              username: 'openrelayproject',
+              credential: 'openrelayproject',
+            },
+            {
+              urls: 'turn:openrelay.metered.ca:443',
+              username: 'openrelayproject',
+              credential: 'openrelayproject',
+            },
+            {
+              urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+              username: 'openrelayproject',
+              credential: 'openrelayproject',
+            },
+          ],
+        },
+      },
+      roomId,
+    )
   } catch (e) {
     cb.onError(e instanceof Error ? e : new Error(String(e)))
     return { send: () => {}, destroy: () => {} }
