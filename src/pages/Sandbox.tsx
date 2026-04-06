@@ -4,7 +4,7 @@ import { useDraftStore } from '../store/draftStore'
 import { useHeroes } from '../hooks/useHeroes'
 import { MOCK_DRAFTS, buildMockDraftState } from '../lib/mockDrafts'
 import { DraftBoard } from '../components/DraftBoard'
-import { LaneAssign } from '../components/LaneAssign'
+import { LaneAssignBoard } from '../components/LaneAssign'
 import { Verdict } from '../components/Verdict'
 
 export default function Sandbox() {
@@ -79,22 +79,7 @@ export default function Sandbox() {
                 </button>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <LaneAssign
-                side="radiant"
-                picks={draft.picks.radiant}
-                byId={byId}
-                assignments={draft.assignments.radiant}
-                editable={draft.phase === 'assigning'}
-              />
-              <LaneAssign
-                side="dire"
-                picks={draft.picks.dire}
-                byId={byId}
-                assignments={draft.assignments.dire}
-                editable={draft.phase === 'assigning'}
-              />
-            </div>
+            <LaneAssignBoard draft={draft} byId={byId} />
           </div>
 
           {draft.phase === 'verdict' && <Verdict byId={byId} />}

@@ -7,7 +7,7 @@ import { CM_SEQUENCE, type Side } from '../types'
 import { DraftBoard } from '../components/DraftBoard'
 import { DraftStatusBar } from '../components/DraftStatusBar'
 import { HeroPool } from '../components/HeroPool'
-import { LaneAssign } from '../components/LaneAssign'
+import { LaneAssignBoard } from '../components/LaneAssign'
 import { Verdict } from '../components/Verdict'
 
 export default function Room() {
@@ -204,35 +204,26 @@ export default function Room() {
 
       {/* Assigning phase */}
       {draft.phase === 'assigning' && (
-        <div className="space-y-4">
+        <>
           <DraftStatusBar draft={draft} mySide={mySide} />
-          <DraftBoard draft={draft} byId={byId} />
-          <div className="bg-panel border border-border rounded-xl p-4 space-y-3">
-            <h2 className="text-lg font-semibold">Распредели героев по лайнам</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <LaneAssign
-                side="radiant"
-                picks={draft.picks.radiant}
-                byId={byId}
-                assignments={draft.assignments.radiant}
-                editable
-              />
-              <LaneAssign
-                side="dire"
-                picks={draft.picks.dire}
-                byId={byId}
-                assignments={draft.assignments.dire}
-                editable
-              />
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+            <div className="space-y-3">
+              <div className="text-sm text-zinc-400">
+                Перетащи героя в нужный слот (1 — Safe carry, 2 — Mid, 3 — Off
+                core, 4 — Off sup, 5 — Safe sup). Чтобы убрать — перетащи
+                обратно в нижний пул.
+              </div>
+              <LaneAssignBoard draft={draft} byId={byId} />
+              <button
+                onClick={finishAssigning}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 rounded-lg py-3 font-semibold"
+              >
+                Показать вердикт
+              </button>
             </div>
-            <button
-              onClick={finishAssigning}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 rounded-lg py-3 font-semibold"
-            >
-              Показать вердикт
-            </button>
+            <DraftBoard draft={draft} byId={byId} />
           </div>
-        </div>
+        </>
       )}
 
       {/* Verdict */}

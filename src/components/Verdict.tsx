@@ -138,18 +138,32 @@ function SampleMatches({
 
   if (radiantIds.length === 0 && direIds.length === 0) return null
 
+  const rows = data?.rows ?? []
+  const total = data?.totalCount ?? 0
+  const capped = data?.capped ?? false
+  const VISIBLE = 10
+  const visibleRows = rows.slice(0, VISIBLE)
+
   return (
     <details className="text-xs">
       <summary className="cursor-pointer text-zinc-400 hover:text-zinc-200">
-        примеры реальных матчей с такой связкой на лайне
+        реальные матчи с такой связкой на лайне
+        {isLoading ? (
+          <span className="text-zinc-600"> · ...</span>
+        ) : (
+          <span className="text-amber-300/80">
+            {' · '}найдено {total.toLocaleString()}
+            {capped && '+'}
+          </span>
+        )}
       </summary>
       <div className="mt-2 space-y-1">
         {isLoading && <div className="text-zinc-500">поиск матчей...</div>}
         {error && <div className="text-rose-400">не удалось получить</div>}
-        {data && data.length === 0 && (
+        {data && rows.length === 0 && (
           <div className="text-zinc-500">матчей с такой связкой не найдено</div>
         )}
-        {data?.map((m) => {
+        {visibleRows.map((m) => {
           const date = new Date(m.start_time * 1000)
           return (
             <a
@@ -180,6 +194,12 @@ function SampleMatches({
             </a>
           )
         })}
+        {rows.length > VISIBLE && (
+          <div className="text-[10px] text-zinc-600 italic pt-1">
+            показано {VISIBLE} из {total.toLocaleString()}
+            {capped && '+'}
+          </div>
+        )}
       </div>
     </details>
   )

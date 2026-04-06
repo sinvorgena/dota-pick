@@ -27,7 +27,7 @@ export function useSampleMatches(radiantIds: number[], direIds: number[]) {
   const key = ['samples', radiantIds.slice().sort().join(','), direIds.slice().sort().join(',')]
   return useQuery({
     queryKey: key,
-    queryFn: () => findSampleMatches(radiantIds, direIds, 5),
+    queryFn: () => findSampleMatches(radiantIds, direIds, 100),
     staleTime: 1000 * 60 * 30,
     enabled: radiantIds.length > 0 || direIds.length > 0,
     retry: 1,
