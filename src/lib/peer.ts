@@ -1,4 +1,4 @@
-import { joinRoom as trysteroJoin, type Room } from '@trystero-p2p/torrent'
+import { joinRoom as trysteroJoin, type Room } from '@trystero-p2p/mqtt'
 import type { DraftState, Side } from '../types'
 
 export type PeerMessage =
