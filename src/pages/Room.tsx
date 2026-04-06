@@ -1,4 +1,4 @@
-import { useParams, useSearchParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { useDraftStore } from '../store/draftStore'
 import { useRoom } from '../hooks/useRoom'
@@ -82,9 +82,18 @@ export default function Room() {
   return (
     <div className="min-h-screen p-4 max-w-[1400px] mx-auto space-y-4">
       <header className="flex items-center justify-between bg-panel border border-border rounded-xl px-4 py-3">
-        <div>
-          <div className="text-xs text-zinc-500">Комната</div>
-          <div className="font-mono text-sm">{id}</div>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/"
+            className="text-xs bg-zinc-800 hover:bg-zinc-700 rounded px-3 py-1.5"
+            title="на главную"
+          >
+            ← на главную
+          </Link>
+          <div>
+            <div className="text-xs text-zinc-500">Комната</div>
+            <div className="font-mono text-sm">{id}</div>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <span
