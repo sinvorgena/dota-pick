@@ -59,7 +59,7 @@ export default function Sandbox() {
 
       {draft.phase !== 'lobby' && (
         <>
-          <DraftBoard draft={draft} byId={byId} mySide={null} />
+          <DraftBoard draft={draft} byId={byId} />
 
           <div className="bg-panel border border-border rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">

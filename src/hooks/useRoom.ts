@@ -10,33 +10,34 @@ export function useRoom(roomId: string, asHost: boolean) {
   const [status, setStatus] = useState<ConnStatus>('idle')
   const [error, setError] = useState<string | null>(null)
   const handleRef = useRef<RoomHandle | null>(null)
-  // suppress echo: we don't want to send a 'state' message right after we received one
   const suppressNext = useRef(false)
 
   useEffect(() => {
     if (!roomId) return
     setStatus(asHost ? 'waiting' : 'connecting')
 
+    const sendCurrentState = (conn: DataConnection) => {
+      const st = useDraftStore.getState()
+      conn.send({ type: 'state', draft: st.draft } satisfies PeerMessage)
+      if (st.mySide) {
+        conn.send({ type: 'hello', side: st.mySide } satisfies PeerMessage)
+      }
+    }
+
     const onConn = (conn: DataConnection) => {
       setStatus('connected')
       useDraftStore.getState().setOpponentReady(true)
 
-      // when guest connects, host syncs draft state and side (if already chosen)
-      if (asHost) {
-        const st = useDraftStore.getState()
-        conn.send({ type: 'state', draft: st.draft } satisfies PeerMessage)
-        if (st.mySide) {
-          conn.send({ type: 'hello', side: st.mySide } satisfies PeerMessage)
-        }
-      }
-
+      // attach data handler FIRST so nothing is missed
       conn.on('data', (raw) => {
         const msg = raw as PeerMessage
-        if (msg.type === 'state') {
+        if (msg.type === 'ready') {
+          // guest signaled it's ready — host pushes current state + side
+          if (asHost) sendCurrentState(conn)
+        } else if (msg.type === 'state') {
           suppressNext.current = true
           useDraftStore.getState().applyDraft(msg.draft)
         } else if (msg.type === 'side-set' || msg.type === 'hello') {
-          // opponent says their side; ours is opposite
           const opp: Side = msg.side === 'radiant' ? 'dire' : 'radiant'
           useDraftStore.getState().setMySide(opp)
         } else if (msg.type === 'reset') {
@@ -47,6 +48,12 @@ export function useRoom(roomId: string, asHost: boolean) {
         setStatus('idle')
         useDraftStore.getState().setOpponentReady(false)
       })
+
+      // guest announces readiness AFTER attaching the data listener.
+      // host will respond with current state + hello.
+      if (!asHost) {
+        conn.send({ type: 'ready' } satisfies PeerMessage)
+      }
     }
 
     const onError = (e: Error) => {
@@ -65,7 +72,7 @@ export function useRoom(roomId: string, asHost: boolean) {
     }
   }, [roomId, asHost])
 
-  // broadcast local draft changes
+  // broadcast local draft changes to peer
   useEffect(() => {
     return useDraftStore.subscribe((state, prev) => {
       if (state.draft === prev.draft) return
@@ -77,8 +84,8 @@ export function useRoom(roomId: string, asHost: boolean) {
     })
   }, [])
 
-  // also re-broadcast my side whenever it changes (handles host picking side
-  // before guest connects → message will simply no-op until conn open)
+  // re-broadcast my side whenever it changes (covers: host picks side AFTER
+  // guest already connected, or just changes their mind)
   useEffect(() => {
     let prevSide: Side | null = useDraftStore.getState().mySide
     return useDraftStore.subscribe((s) => {

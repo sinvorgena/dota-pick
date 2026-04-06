@@ -5,6 +5,7 @@ import { useRoom } from '../hooks/useRoom'
 import { useHeroes } from '../hooks/useHeroes'
 import { CM_SEQUENCE, type Side } from '../types'
 import { DraftBoard } from '../components/DraftBoard'
+import { DraftStatusBar } from '../components/DraftStatusBar'
 import { HeroPool } from '../components/HeroPool'
 import { LaneAssign } from '../components/LaneAssign'
 import { Verdict } from '../components/Verdict'
@@ -79,7 +80,7 @@ export default function Room() {
   const showSidePicker = !mySide && isHost
 
   return (
-    <div className="min-h-screen p-4 max-w-7xl mx-auto space-y-4">
+    <div className="min-h-screen p-4 max-w-[1400px] mx-auto space-y-4">
       <header className="flex items-center justify-between bg-panel border border-border rounded-xl px-4 py-3">
         <div>
           <div className="text-xs text-zinc-500">Комната</div>
@@ -184,17 +185,28 @@ export default function Room() {
       {/* Drafting phase */}
       {(draft.phase === 'drafting' || draft.phase === 'lobby') && mySide && (
         <>
-          <DraftBoard draft={draft} byId={byId} mySide={mySide} />
-          {draft.phase === 'drafting' && (
-            <HeroPool heroes={heroes} draft={draft} canAct={canAct} onPick={pickHero} />
-          )}
+          <DraftStatusBar draft={draft} mySide={mySide} />
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+            <div>
+              {draft.phase === 'drafting' && (
+                <HeroPool
+                  heroes={heroes}
+                  draft={draft}
+                  canAct={canAct}
+                  onPick={pickHero}
+                />
+              )}
+            </div>
+            <DraftBoard draft={draft} byId={byId} />
+          </div>
         </>
       )}
 
       {/* Assigning phase */}
       {draft.phase === 'assigning' && (
         <div className="space-y-4">
-          <DraftBoard draft={draft} byId={byId} mySide={mySide} />
+          <DraftStatusBar draft={draft} mySide={mySide} />
+          <DraftBoard draft={draft} byId={byId} />
           <div className="bg-panel border border-border rounded-xl p-4 space-y-3">
             <h2 className="text-lg font-semibold">Распредели героев по лайнам</h2>
             <div className="grid grid-cols-2 gap-4">

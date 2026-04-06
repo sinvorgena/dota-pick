@@ -2,6 +2,7 @@ import Peer, { type DataConnection } from 'peerjs'
 import type { DraftState, Side } from '../types'
 
 export type PeerMessage =
+  | { type: 'ready' } // guest → host: I'm fully listening, send me current state
   | { type: 'hello'; side: Side }
   | { type: 'side-set'; side: Side }
   | { type: 'state'; draft: DraftState }
