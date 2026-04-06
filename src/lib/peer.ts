@@ -1,18 +1,19 @@
-import Peer, { type DataConnection } from 'peerjs'
+import { joinRoom as trysteroJoin, type Room } from 'trystero'
 import type { DraftState, Side } from '../types'
 
 export type PeerMessage =
-  | { type: 'ready' } // guest → host: I'm fully listening, send me current state
+  | { type: 'ready' } // legacy, kept for typing — no longer used
   | { type: 'hello'; side: Side }
   | { type: 'side-set'; side: Side }
   | { type: 'state'; draft: DraftState }
   | { type: 'reset' }
 
-const PREFIX = 'dota-pick-cd-'
+// App identifier scoped to this project — must be the same on both peers
+// for them to find each other on the BitTorrent trackers used as signaling.
+const APP_ID = 'dota-pick-cd-v1'
 
-// Public PeerJS broker validates IDs against this regex. The full peer id
-// is `<PREFIX><roomId>` so the room id must be alphanumeric (no `_-`) to
-// avoid producing consecutive separators or trailing separators.
+// Room id is restricted to alphanumeric so a peer id of `<appId>-<roomId>`
+// always passes any sane validation downstream.
 const VALID_ROOM_ID = /^[A-Za-z0-9]+$/
 
 function assertValidRoomId(roomId: string) {
@@ -23,86 +24,58 @@ function assertValidRoomId(roomId: string) {
   }
 }
 
+export interface RoomCallbacks {
+  onPeerJoin: () => void
+  onPeerLeave: () => void
+  onMessage: (msg: PeerMessage) => void
+  onError: (err: Error) => void
+}
+
 export interface RoomHandle {
-  peer: Peer
-  /** when host: incoming guest conn; when guest: outgoing conn to host */
-  conn: DataConnection | null
-  isHost: boolean
-  roomId: string // bare id without prefix
   send: (msg: PeerMessage) => void
   destroy: () => void
 }
 
-function makePeer(id?: string): Peer {
-  return new Peer(id ?? '', {
-    debug: 1,
-  })
-}
-
 /**
- * Create a host peer with a deterministic id and wait for guest to join.
+ * Join (or create) a P2P room over WebRTC. Uses trystero with public
+ * BitTorrent trackers as signaling — no central broker, no CORS issues.
+ *
+ * The host/guest distinction is purely a UI concept; at the signaling level
+ * both peers are symmetric and the room is auto-formed when the second peer
+ * joins with the same room id.
  */
-export function createHost(
-  roomId: string,
-  onConn: (conn: DataConnection) => void,
-  onError: (err: Error) => void,
-): RoomHandle {
+export function createRoom(roomId: string, cb: RoomCallbacks): RoomHandle {
   assertValidRoomId(roomId)
-  const peerId = PREFIX + roomId
-  const peer = makePeer(peerId)
-  const handle: RoomHandle = {
-    peer,
-    conn: null,
-    isHost: true,
-    roomId,
-    send: (msg) => handle.conn?.send(msg),
-    destroy: () => {
-      handle.conn?.close()
-      peer.destroy()
-    },
+
+  let room: Room
+  try {
+    room = trysteroJoin({ appId: APP_ID }, roomId)
+  } catch (e) {
+    cb.onError(e instanceof Error ? e : new Error(String(e)))
+    return { send: () => {}, destroy: () => {} }
   }
 
-  peer.on('open', () => {
-    /* ready */
-  })
-  peer.on('connection', (conn) => {
-    handle.conn = conn
-    conn.on('open', () => onConn(conn))
-  })
-  peer.on('error', (e) => onError(e as unknown as Error))
+  // trystero requires a JsonValue-compatible payload type; PeerMessage uses
+  // structural interfaces that TS won't widen automatically, so we type the
+  // action loosely and re-cast on the receiving side.
+  const [sendMsg, getMsg] = room.makeAction('msg')
 
-  return handle
-}
+  getMsg((data) => {
+    cb.onMessage(data as unknown as PeerMessage)
+  })
+  room.onPeerJoin(() => cb.onPeerJoin())
+  room.onPeerLeave(() => cb.onPeerLeave())
 
-/**
- * Connect to an existing host as guest.
- */
-export function joinRoom(
-  roomId: string,
-  onConn: (conn: DataConnection) => void,
-  onError: (err: Error) => void,
-): RoomHandle {
-  assertValidRoomId(roomId)
-  const peer = makePeer() // anonymous
-  const handle: RoomHandle = {
-    peer,
-    conn: null,
-    isHost: false,
-    roomId,
-    send: (msg) => handle.conn?.send(msg),
+  return {
+    send: (msg) => {
+      try {
+        sendMsg(msg as unknown as Parameters<typeof sendMsg>[0])
+      } catch {
+        // sending before any peer has joined throws — safe to ignore
+      }
+    },
     destroy: () => {
-      handle.conn?.close()
-      peer.destroy()
+      room.leave()
     },
   }
-
-  peer.on('open', () => {
-    const conn = peer.connect(PREFIX + roomId, { reliable: true })
-    handle.conn = conn
-    conn.on('open', () => onConn(conn))
-    conn.on('error', (e) => onError(e as unknown as Error))
-  })
-  peer.on('error', (e) => onError(e as unknown as Error))
-
-  return handle
 }
