@@ -1,4 +1,4 @@
-import { joinRoom as trysteroJoin, type Room } from 'trystero'
+import { joinRoom as trysteroJoin, type Room } from '@trystero-p2p/firebase'
 import type { DraftState, Side } from '../types'
 
 export type PeerMessage =
@@ -8,12 +8,15 @@ export type PeerMessage =
   | { type: 'state'; draft: DraftState }
   | { type: 'reset' }
 
-// App identifier scoped to this project — must be the same on both peers
-// for them to find each other on the BitTorrent trackers used as signaling.
-const APP_ID = 'dota-pick-cd-v1'
+// Firebase Realtime DB URL is passed as `appId` — trystero's firebase strategy
+// uses it both as the namespace for topic paths AND to initialise the database
+// connection. Both peers must use the exact same string for them to find each
+// other.
+const FIREBASE_DB_URL =
+  'https://dota-pick-159ba-default-rtdb.europe-west1.firebasedatabase.app'
 
-// Room id is restricted to alphanumeric so a peer id of `<appId>-<roomId>`
-// always passes any sane validation downstream.
+// Room id is restricted to alphanumeric so it's safe as a Firebase RTDB child
+// key (no '.', '#', '$', '[', ']', '/').
 const VALID_ROOM_ID = /^[A-Za-z0-9]+$/
 
 function assertValidRoomId(roomId: string) {
@@ -37,12 +40,9 @@ export interface RoomHandle {
 }
 
 /**
- * Join (or create) a P2P room over WebRTC. Uses trystero with public
- * BitTorrent trackers as signaling — no central broker, no CORS issues.
- *
- * The host/guest distinction is purely a UI concept; at the signaling level
- * both peers are symmetric and the room is auto-formed when the second peer
- * joins with the same room id.
+ * Join (or create) a P2P room over WebRTC. Uses trystero with Firebase
+ * Realtime Database as the signaling layer — reliable, runs on wss/443, no
+ * rate limiting like the public nostr relays we tried before.
  */
 export function createRoom(roomId: string, cb: RoomCallbacks): RoomHandle {
   assertValidRoomId(roomId)
@@ -51,24 +51,7 @@ export function createRoom(roomId: string, cb: RoomCallbacks): RoomHandle {
   try {
     room = trysteroJoin(
       {
-        appId: APP_ID,
-        // Curated list of nostr relays. Trystero's default behavior picks a
-        // random subset of ~100 relays, which often lands on dead or filter-
-        // happy ones. The first five below were observed to successfully
-        // upgrade WSS in production HAR captures; the rest are well-known
-        // backups. We deliberately avoid relay.damus.io / snort.social /
-        // nostr.band — damus aggressively rate-limits trystero's ephemeral
-        // event spam, the others have been unreachable.
-        relayUrls: [
-          'wss://ftp.halifax.rwth-aachen.de/nostr',
-          'wss://nostr.data.haus',
-          'wss://santo.iguanatech.net',
-          'wss://nostr.islandarea.net',
-          'wss://staging.yabu.me',
-          'wss://nos.lol',
-          'wss://nostr.mom',
-          'wss://relay.nostr.bg',
-        ],
+        appId: FIREBASE_DB_URL,
         // STUN alone fails when either peer sits behind a symmetric NAT
         // (mobile carriers, many corporate/home routers). Add free TURN
         // relays from Open Relay Project so traffic can fall back to TURN.
@@ -101,9 +84,6 @@ export function createRoom(roomId: string, cb: RoomCallbacks): RoomHandle {
     return { send: () => {}, destroy: () => {} }
   }
 
-  // trystero requires a JsonValue-compatible payload type; PeerMessage uses
-  // structural interfaces that TS won't widen automatically, so we type the
-  // action loosely and re-cast on the receiving side.
   const [sendMsg, getMsg] = room.makeAction('msg')
 
   getMsg((data, peerId) => {
