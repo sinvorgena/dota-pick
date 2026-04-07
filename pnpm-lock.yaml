@@ -11,12 +11,12 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.96.2
         version: 5.96.2(react@19.2.4)
-      '@trystero-p2p/firebase':
-        specifier: ^0.23.0
-        version: 0.23.0
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      firebase:
+        specifier: ^12.11.0
+        version: 12.11.0
       ky:
         specifier: ^2.0.0
         version: 2.0.0
@@ -32,9 +32,6 @@ importers:
       react-router-dom:
         specifier: ^7.14.0
         version: 7.14.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      trystero:
-        specifier: ^0.23.0
-        version: 0.23.0
       zustand:
         specifier: ^5.0.12
         version: 5.0.12(@types/react@19.2.14)(react@19.2.4)
@@ -462,9 +459,6 @@ packages:
       '@emnapi/core': ^1.7.1
       '@emnapi/runtime': ^1.7.1
 
-  '@noble/secp256k1@3.0.0':
-    resolution: {integrity: sha512-NJBaR352KyIvj3t6sgT/+7xrNyF9Xk9QlLSIqUGVUYlsnDTAUqY8LOmwpcgEx4AMJXRITQ5XEVHD+mMaPfr3mg==}
-
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
     engines: {node: '>= 8'}
@@ -612,15 +606,6 @@ packages:
     resolution: {integrity: sha512-sYyzzJT4G0g02azzJ8o55VFFV31XvFpdUpG+unxS0vSaYsJnSPKGoI6WdPwUucJL1wpgGfwfmntNX/Ub1uOViA==}
     peerDependencies:
       react: ^18 || ^19
-
-  '@trystero-p2p/core@0.23.0':
-    resolution: {integrity: sha512-ozhtgxKDZH11Gdef0wH8xivwAE/L0/lDFvEcNFWPJWnHZlxWPPyfeonwE287ssGevQNi10vnj6x2ZcOi0n1bQQ==}
-
-  '@trystero-p2p/firebase@0.23.0':
-    resolution: {integrity: sha512-7NUZrR2s0JbXuK/INX8+qL240RGfqNwCKFBMou9C6GjfLhtkaioGPE9c1RtcLsQElGP15z5knjuPAeHF5v+Heg==}
-
-  '@trystero-p2p/nostr@0.23.0':
-    resolution: {integrity: sha512-KSqUR2c1KVfv4zeErcntuegtyKzFTzNNiitIKGD0LiKA/4H3CeTF81ROk2h+X/PNvP4mv7Gp5eVxFYwfMu4Nrg==}
 
   '@tybys/wasm-util@0.10.1':
     resolution: {integrity: sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg==}
@@ -1513,9 +1498,6 @@ packages:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}
     engines: {node: '>=8.0'}
 
-  trystero@0.23.0:
-    resolution: {integrity: sha512-HsM0FT0w41XW9bhXmYAfxr7PT+F6KwMzOxfJK2MbfipnMk/XrAIsV8lMTgU8NwWQqwCiS/b0b1qDsOf6IGxTmg==}
-
   ts-api-utils@2.5.0:
     resolution: {integrity: sha512-OJ/ibxhPlqrMM0UiNHJ/0CKQkoKF243/AEmplt3qpRgkW8VG7IfOS41h7V8TjITqdByHzrjcS/2si+y4lIh8NA==}
     engines: {node: '>=18.12'}
@@ -2205,8 +2187,6 @@ snapshots:
       '@tybys/wasm-util': 0.10.1
     optional: true
 
-  '@noble/secp256k1@3.0.0': {}
-
   '@nodelib/fs.scandir@2.1.5':
     dependencies:
       '@nodelib/fs.stat': 2.0.5
@@ -2304,20 +2284,6 @@ snapshots:
     dependencies:
       '@tanstack/query-core': 5.96.2
       react: 19.2.4
-
-  '@trystero-p2p/core@0.23.0': {}
-
-  '@trystero-p2p/firebase@0.23.0':
-    dependencies:
-      '@trystero-p2p/core': 0.23.0
-      firebase: 12.11.0
-    transitivePeerDependencies:
-      - '@react-native-async-storage/async-storage'
-
-  '@trystero-p2p/nostr@0.23.0':
-    dependencies:
-      '@noble/secp256k1': 3.0.0
-      '@trystero-p2p/core': 0.23.0
 
   '@tybys/wasm-util@0.10.1':
     dependencies:
@@ -3200,10 +3166,6 @@ snapshots:
   to-regex-range@5.0.1:
     dependencies:
       is-number: 7.0.0
-
-  trystero@0.23.0:
-    dependencies:
-      '@trystero-p2p/nostr': 0.23.0
 
   ts-api-utils@2.5.0(typescript@6.0.2):
     dependencies:

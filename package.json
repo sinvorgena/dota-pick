@@ -11,14 +11,13 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.96.2",
-    "@trystero-p2p/firebase": "^0.23.0",
     "clsx": "^2.1.1",
+    "firebase": "^12.11.0",
     "ky": "^2.0.0",
     "nanoid": "^5.1.7",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.14.0",
-    "trystero": "^0.23.0",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
