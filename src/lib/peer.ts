@@ -47,31 +47,33 @@ export interface RoomHandle {
   destroy: () => void
 }
 
+// Metered.ca TURN — personal free tier (500 MB / month), credentials are
+// long-lived and safe to ship client-side since metered enforces quota on
+// their side and traffic is rate-limited per account.
+const METERED_USERNAME = '1cefbab852e699f53b8dd888'
+const METERED_CREDENTIAL = 'za25nV6b0pKQDhF0'
+
 const ICE_SERVERS: RTCIceServer[] = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'stun:stun.cloudflare.com:3478' },
-  // freestun.net — public free TURN, no signup
+  { urls: 'stun:stun.relay.metered.ca:80' },
   {
-    urls: 'turn:freestun.net:3478',
-    username: 'free',
-    credential: 'free',
+    urls: 'turn:global.relay.metered.ca:80',
+    username: METERED_USERNAME,
+    credential: METERED_CREDENTIAL,
   },
   {
-    urls: 'turns:freestun.net:5350',
-    username: 'free',
-    credential: 'free',
-  },
-  // openrelay backup
-  {
-    urls: 'turn:openrelay.metered.ca:80',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
+    urls: 'turn:global.relay.metered.ca:80?transport=tcp',
+    username: METERED_USERNAME,
+    credential: METERED_CREDENTIAL,
   },
   {
-    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
+    urls: 'turn:global.relay.metered.ca:443',
+    username: METERED_USERNAME,
+    credential: METERED_CREDENTIAL,
+  },
+  {
+    urls: 'turns:global.relay.metered.ca:443?transport=tcp',
+    username: METERED_USERNAME,
+    credential: METERED_CREDENTIAL,
   },
 ]
 
