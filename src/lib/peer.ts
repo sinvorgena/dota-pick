@@ -59,13 +59,21 @@ export function createRoom(roomId: string, cb: RoomCallbacks): RoomHandle {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun.cloudflare.com:3478' },
+            // freestun.net — public free TURN, no signup
             {
-              urls: 'turn:openrelay.metered.ca:80',
-              username: 'openrelayproject',
-              credential: 'openrelayproject',
+              urls: 'turn:freestun.net:3478',
+              username: 'free',
+              credential: 'free',
             },
             {
-              urls: 'turn:openrelay.metered.ca:443',
+              urls: 'turns:freestun.net:5350',
+              username: 'free',
+              credential: 'free',
+            },
+            // openrelay project — backup TURN
+            {
+              urls: 'turn:openrelay.metered.ca:80',
               username: 'openrelayproject',
               credential: 'openrelayproject',
             },
@@ -83,6 +91,23 @@ export function createRoom(roomId: string, cb: RoomCallbacks): RoomHandle {
     cb.onError(e instanceof Error ? e : new Error(String(e)))
     return { send: () => {}, destroy: () => {} }
   }
+
+  // Debug poll: every 2s for 30s, dump current peers and their connection
+  // states. This makes signaling vs WebRTC NAT failures easy to tell apart.
+  let pollCount = 0
+  const pollTimer = setInterval(() => {
+    pollCount += 1
+    const peers = room.getPeers()
+    const summary = Object.entries(peers).map(([id, pc]) => ({
+      id,
+      connectionState: pc.connectionState,
+      iceConnectionState: pc.iceConnectionState,
+      iceGatheringState: pc.iceGatheringState,
+      signalingState: pc.signalingState,
+    }))
+    console.log('[peer] poll', pollCount, summary)
+    if (pollCount >= 15) clearInterval(pollTimer)
+  }, 2000)
 
   const [sendMsg, getMsg] = room.makeAction('msg')
 
@@ -108,6 +133,7 @@ export function createRoom(roomId: string, cb: RoomCallbacks): RoomHandle {
       })
     },
     destroy: () => {
+      clearInterval(pollTimer)
       room.leave()
     },
   }
