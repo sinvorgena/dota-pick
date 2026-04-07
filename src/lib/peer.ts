@@ -1,4 +1,4 @@
-import { joinRoom as trysteroJoin, type Room } from '@trystero-p2p/mqtt'
+import { joinRoom as trysteroJoin, type Room } from '@trystero-p2p/nostr'
 import type { DraftState, Side } from '../types'
 
 export type PeerMessage =
@@ -52,6 +52,18 @@ export function createRoom(roomId: string, cb: RoomCallbacks): RoomHandle {
     room = trysteroJoin(
       {
         appId: APP_ID,
+        // Curated list of well-known nostr relays. Trystero's default behavior
+        // picks a random subset of ~100 relays, many of which silently drop
+        // ephemeral events (kind 20000+) used for WebRTC signaling. These five
+        // are production relays that reliably propagate every event kind and
+        // all run on wss/443 so they pass through restrictive networks.
+        relayUrls: [
+          'wss://relay.damus.io',
+          'wss://nos.lol',
+          'wss://relay.nostr.band',
+          'wss://nostr.mom',
+          'wss://relay.snort.social',
+        ],
         // STUN alone fails when either peer sits behind a symmetric NAT
         // (mobile carriers, many corporate/home routers). Add free TURN
         // relays from Open Relay Project so traffic can fall back to TURN.
