@@ -52,17 +52,22 @@ export function createRoom(roomId: string, cb: RoomCallbacks): RoomHandle {
     room = trysteroJoin(
       {
         appId: APP_ID,
-        // Curated list of well-known nostr relays. Trystero's default behavior
-        // picks a random subset of ~100 relays, many of which silently drop
-        // ephemeral events (kind 20000+) used for WebRTC signaling. These five
-        // are production relays that reliably propagate every event kind and
-        // all run on wss/443 so they pass through restrictive networks.
+        // Curated list of nostr relays. Trystero's default behavior picks a
+        // random subset of ~100 relays, which often lands on dead or filter-
+        // happy ones. The first five below were observed to successfully
+        // upgrade WSS in production HAR captures; the rest are well-known
+        // backups. We deliberately avoid relay.damus.io / snort.social /
+        // nostr.band — damus aggressively rate-limits trystero's ephemeral
+        // event spam, the others have been unreachable.
         relayUrls: [
-          'wss://relay.damus.io',
+          'wss://ftp.halifax.rwth-aachen.de/nostr',
+          'wss://nostr.data.haus',
+          'wss://santo.iguanatech.net',
+          'wss://nostr.islandarea.net',
+          'wss://staging.yabu.me',
           'wss://nos.lol',
-          'wss://relay.nostr.band',
           'wss://nostr.mom',
-          'wss://relay.snort.social',
+          'wss://relay.nostr.bg',
         ],
         // STUN alone fails when either peer sits behind a symmetric NAT
         // (mobile carriers, many corporate/home routers). Add free TURN
