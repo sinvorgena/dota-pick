@@ -23,10 +23,18 @@ export default function Solo() {
   const undo = useDraftStore((s) => s.undo)
   const redo = useDraftStore((s) => s.redo)
 
-  // start fresh and immediately begin drafting
+  // Start fresh only if no draft is already loaded (e.g. from MatchAnalysis).
+  // A loaded draft will have picks or a non-lobby phase.
   useEffect(() => {
-    reset()
-    useDraftStore.getState().setPhase('drafting')
+    const s = useDraftStore.getState()
+    const hasData =
+      s.draft.picks.radiant.length > 0 ||
+      s.draft.picks.dire.length > 0 ||
+      (s.draft.phase !== 'lobby' && s.draft.phase !== 'drafting')
+    if (!hasData) {
+      reset()
+      useDraftStore.getState().setPhase('drafting')
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
