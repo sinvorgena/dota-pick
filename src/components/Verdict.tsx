@@ -421,14 +421,11 @@ function CounterpickCard({ info }: { info: HeroCounterpickInfo }) {
                 <HeroIcon hero={c.counter} />
               </div>
               <span className="text-zinc-300">{c.counter.localized_name}</span>
-              <PosTag pos={c.counterPos} />
-              <span className="text-zinc-500">
-                {c.counterPos != null && c.heroPos != null
-                  ? `контрит pos ${c.heroPos}`
-                  : ''}
-              </span>
+              {c.counterPos != null && (
+                <span className="text-zinc-500">pos {c.counterPos}</span>
+              )}
               <span className="ml-auto text-rose-400 font-semibold">
-                {(c.winrate * 100).toFixed(1)}%
+                {((1 - c.winrate) * 100).toFixed(0)}% побед
               </span>
               <span className="text-zinc-600 shrink-0">
                 {c.games.toLocaleString()} игр
@@ -453,14 +450,11 @@ function CounterpickCard({ info }: { info: HeroCounterpickInfo }) {
                 <HeroIcon hero={p.counter} />
               </div>
               <span className="text-zinc-400">{p.counter.localized_name}</span>
-              <PosTag pos={p.counterPos} />
-              <span className="text-zinc-500">
-                {p.counterPos != null
-                  ? `на pos ${p.counterPos} (${POS_LABELS[p.counterPos] ?? ''})`
-                  : ''}
-              </span>
+              {p.counterPos != null && (
+                <span className="text-zinc-500">pos {p.counterPos}</span>
+              )}
               <span className="ml-auto text-amber-400">
-                {(p.winrate * 100).toFixed(1)}%
+                {((1 - p.winrate) * 100).toFixed(0)}% побед
               </span>
               <span className="text-zinc-600 shrink-0">
                 {p.games.toLocaleString()} игр
