@@ -367,14 +367,6 @@ function WinProbabilityBar({
 // Counterpick card per hero
 // ---------------------------------------------------------------------------
 
-const POS_LABELS: Record<number, string> = {
-  1: 'Carry',
-  2: 'Mid',
-  3: 'Offlane',
-  4: 'Soft Sup',
-  5: 'Hard Sup',
-}
-
 function PosTag({ pos }: { pos: number | null }) {
   if (pos == null) return null
   return (
