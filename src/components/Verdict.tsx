@@ -376,6 +376,65 @@ function PosTag({ pos }: { pos: number | null }) {
   )
 }
 
+/**
+ * Winrate bar: [counter icon] ===green===|===red=== [hero icon]
+ * `counterWr` = counter hero's winrate (0..1), green part.
+ * `heroWr` = our hero's winrate = 1 - counterWr, red part.
+ */
+function MatchupBar({
+  counterHero,
+  ourHero,
+  counterWr,
+  games,
+  dim,
+}: {
+  counterHero: Hero
+  ourHero: Hero
+  counterWr: number
+  games: number
+  dim?: boolean
+}) {
+  const greenPct = Math.max(counterWr * 100, 8)
+  const redPct = Math.max((1 - counterWr) * 100, 8)
+  const greenLabel = (counterWr * 100).toFixed(1)
+  const redLabel = ((1 - counterWr) * 100).toFixed(1)
+
+  return (
+    <div className={`flex items-center gap-1.5 ${dim ? 'opacity-60' : ''}`}>
+      {/* Counter hero icon — left */}
+      <div className="w-8 shrink-0">
+        <HeroIcon hero={counterHero} />
+      </div>
+
+      {/* Bar */}
+      <div className="flex-1 flex h-7 rounded overflow-hidden text-[11px] font-bold">
+        <div
+          className="bg-emerald-600/80 flex items-center justify-center transition-all duration-500 min-w-[2rem]"
+          style={{ width: `${greenPct}%` }}
+        >
+          {greenLabel}%
+        </div>
+        <div
+          className="bg-rose-600/80 flex items-center justify-center transition-all duration-500 min-w-[2rem]"
+          style={{ width: `${redPct}%` }}
+        >
+          {redLabel}%
+        </div>
+      </div>
+
+      {/* Our hero icon — right */}
+      <div className="w-8 shrink-0">
+        <HeroIcon hero={ourHero} />
+      </div>
+
+      {/* Game count */}
+      <span className="text-[10px] text-zinc-600 w-14 text-right shrink-0">
+        {games.toLocaleString()} игр
+      </span>
+    </div>
+  )
+}
+
 function CounterpickCard({ info }: { info: HeroCounterpickInfo }) {
   const hasCounters = info.counters.length > 0
   const hasPotentials = info.potentials.length > 0
@@ -400,58 +459,37 @@ function CounterpickCard({ info }: { info: HeroCounterpickInfo }) {
 
       {/* Active counters from enemy team */}
       {hasCounters && (
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <div className="text-[10px] uppercase tracking-wider text-zinc-500">
             контрят из вражеского пика
           </div>
           {info.counters.map((c) => (
-            <div
+            <MatchupBar
               key={c.counter.id}
-              className="flex items-center gap-2 text-xs bg-bg/60 rounded px-2 py-1"
-            >
-              <div className="w-8">
-                <HeroIcon hero={c.counter} />
-              </div>
-              <span className="text-zinc-300">{c.counter.localized_name}</span>
-              {c.counterPos != null && (
-                <span className="text-zinc-500">pos {c.counterPos}</span>
-              )}
-              <span className="ml-auto text-rose-400 font-semibold">
-                {((1 - c.winrate) * 100).toFixed(0)}% побед
-              </span>
-              <span className="text-zinc-600 shrink-0">
-                {c.games.toLocaleString()} игр
-              </span>
-            </div>
+              counterHero={c.counter}
+              ourHero={info.hero}
+              counterWr={1 - c.winrate}
+              games={c.games}
+            />
           ))}
         </div>
       )}
 
       {/* Potential counters not in draft */}
       {hasPotentials && (
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <div className="text-[10px] uppercase tracking-wider text-zinc-500">
             могли контрить (не пикнуты/забанены)
           </div>
           {info.potentials.map((p) => (
-            <div
+            <MatchupBar
               key={p.counter.id}
-              className="flex items-center gap-2 text-xs bg-bg/60 rounded px-2 py-1 opacity-70"
-            >
-              <div className="w-8">
-                <HeroIcon hero={p.counter} />
-              </div>
-              <span className="text-zinc-400">{p.counter.localized_name}</span>
-              {p.counterPos != null && (
-                <span className="text-zinc-500">pos {p.counterPos}</span>
-              )}
-              <span className="ml-auto text-amber-400">
-                {((1 - p.winrate) * 100).toFixed(0)}% побед
-              </span>
-              <span className="text-zinc-600 shrink-0">
-                {p.games.toLocaleString()} игр
-              </span>
-            </div>
+              counterHero={p.counter}
+              ourHero={info.hero}
+              counterWr={1 - p.winrate}
+              games={p.games}
+              dim
+            />
           ))}
         </div>
       )}
