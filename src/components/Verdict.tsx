@@ -30,8 +30,16 @@ export function Verdict({ byId }: { byId: Record<number, Hero> }) {
   )
 
   const counterpicks = useMemo(
-    () => computeCounterpicks(byId, draft.picks, draft.bans, matchups, 3),
-    [byId, draft.picks, draft.bans, matchups],
+    () =>
+      computeCounterpicks(
+        byId,
+        draft.picks,
+        draft.bans,
+        draft.assignments,
+        matchups,
+        3,
+      ),
+    [byId, draft.picks, draft.bans, draft.assignments, matchups],
   )
 
   const winProb = useMemo(
@@ -88,7 +96,7 @@ export function Verdict({ byId }: { byId: Record<number, Hero> }) {
           </h3>
           <div className="space-y-2">
             {radiantCPs.map((c) => (
-              <CounterpickCard key={c.hero.id} info={c} byId={byId} />
+              <CounterpickCard key={c.hero.id} info={c} />
             ))}
           </div>
         </div>
@@ -96,7 +104,7 @@ export function Verdict({ byId }: { byId: Record<number, Hero> }) {
           <h3 className="text-sm font-semibold text-rose-400 mb-2">Dire</h3>
           <div className="space-y-2">
             {direCPs.map((c) => (
-              <CounterpickCard key={c.hero.id} info={c} byId={byId} />
+              <CounterpickCard key={c.hero.id} info={c} />
             ))}
           </div>
         </div>
@@ -179,12 +187,24 @@ function WinProbabilityBar({
 // Counterpick card per hero
 // ---------------------------------------------------------------------------
 
-function CounterpickCard({
-  info,
-}: {
-  info: HeroCounterpickInfo
-  byId: Record<number, Hero>
-}) {
+const POS_LABELS: Record<number, string> = {
+  1: 'Carry',
+  2: 'Mid',
+  3: 'Offlane',
+  4: 'Soft Sup',
+  5: 'Hard Sup',
+}
+
+function PosTag({ pos }: { pos: number | null }) {
+  if (pos == null) return null
+  return (
+    <span className="text-[10px] bg-zinc-700 rounded px-1 py-0.5 text-zinc-300 whitespace-nowrap">
+      pos {pos}
+    </span>
+  )
+}
+
+function CounterpickCard({ info }: { info: HeroCounterpickInfo }) {
   const hasCounters = info.counters.length > 0
   const hasPotentials = info.potentials.length > 0
 
@@ -195,14 +215,15 @@ function CounterpickCard({
         <div className="w-12">
           <HeroIcon hero={info.hero} />
         </div>
-        <div>
-          <div className="text-sm font-semibold">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold">
             {info.hero.localized_name}
-          </div>
-          {!hasCounters && !hasPotentials && (
-            <div className="text-xs text-zinc-500">контрпиков нет</div>
-          )}
+          </span>
+          <PosTag pos={info.heroPos} />
         </div>
+        {!hasCounters && !hasPotentials && (
+          <span className="ml-auto text-xs text-zinc-500">контрпиков нет</span>
+        )}
       </div>
 
       {/* Active counters from enemy team */}
@@ -220,10 +241,16 @@ function CounterpickCard({
                 <HeroIcon hero={c.counter} />
               </div>
               <span className="text-zinc-300">{c.counter.localized_name}</span>
+              <PosTag pos={c.counterPos} />
+              <span className="text-zinc-500">
+                {c.counterPos != null && c.heroPos != null
+                  ? `контрит pos ${c.heroPos}`
+                  : ''}
+              </span>
               <span className="ml-auto text-rose-400 font-semibold">
                 {(c.winrate * 100).toFixed(1)}%
               </span>
-              <span className="text-zinc-600">
+              <span className="text-zinc-600 shrink-0">
                 {c.games.toLocaleString()} игр
               </span>
             </div>
@@ -246,10 +273,16 @@ function CounterpickCard({
                 <HeroIcon hero={p.counter} />
               </div>
               <span className="text-zinc-400">{p.counter.localized_name}</span>
+              <PosTag pos={p.counterPos} />
+              <span className="text-zinc-500">
+                {p.counterPos != null
+                  ? `на pos ${p.counterPos} (${POS_LABELS[p.counterPos] ?? ''})`
+                  : ''}
+              </span>
               <span className="ml-auto text-amber-400">
                 {(p.winrate * 100).toFixed(1)}%
               </span>
-              <span className="text-zinc-600">
+              <span className="text-zinc-600 shrink-0">
                 {p.games.toLocaleString()} игр
               </span>
             </div>

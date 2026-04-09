@@ -135,8 +135,12 @@ export function computeRealLaneResults(
 
 export interface Counterpick {
   hero: Hero
+  /** Position (1-5) of the hero being countered, null if unassigned */
+  heroPos: number | null
   /** Enemy hero that counters `hero` */
   counter: Hero
+  /** Position (1-5) of the counter hero, null if unassigned */
+  counterPos: number | null
   /** Winrate of `hero` AGAINST `counter` — lower = stronger counter */
   winrate: number
   games: number
@@ -144,8 +148,11 @@ export interface Counterpick {
 
 export interface PotentialCounterpick {
   hero: Hero
+  heroPos: number | null
   /** Hero NOT in the draft that would counter `hero` */
   counter: Hero
+  /** Estimated typical position (1-5) of the counter hero */
+  counterPos: number | null
   winrate: number
   games: number
 }
@@ -153,10 +160,36 @@ export interface PotentialCounterpick {
 export interface HeroCounterpickInfo {
   hero: Hero
   side: Side
+  heroPos: number | null
   /** Enemy heroes from the draft that counter this hero (sorted worst first) */
   counters: Counterpick[]
   /** Top N heroes outside the draft that could have countered this hero */
   potentials: PotentialCounterpick[]
+}
+
+function assignmentToPos(a: LaneAssignment | undefined): number | null {
+  if (!a) return null
+  if (a.lane === 'safe' && a.role === 'core') return 1
+  if (a.lane === 'mid' && a.role === 'core') return 2
+  if (a.lane === 'off' && a.role === 'core') return 3
+  if (a.lane === 'off' && a.role === 'support') return 4
+  if (a.lane === 'safe' && a.role === 'support') return 5
+  if (a.lane === 'mid' && a.role === 'support') return 4 // treat as roaming 4
+  return null
+}
+
+/** Estimate typical position for an unpicked hero based on its roles array. */
+function estimatePos(hero: Hero): number | null {
+  const r = hero.roles
+  if (r.includes('Carry') && !r.includes('Support')) return 1
+  if (r.includes('Nuker') && r.includes('Escape') && !r.includes('Support')) return 2
+  if (r.includes('Initiator') && r.includes('Durable') && !r.includes('Support')) return 3
+  if (r.includes('Support') && r.includes('Disabler')) return 4
+  if (r.includes('Support')) return 5
+  if (r.includes('Carry')) return 1
+  if (r.includes('Pusher') && r.includes('Nuker')) return 2
+  if (r.includes('Durable') || r.includes('Initiator')) return 3
+  return null
 }
 
 /**
@@ -168,6 +201,10 @@ export function computeCounterpicks(
   heroesById: Record<number, Hero>,
   picks: { radiant: number[]; dire: number[] },
   bans: { radiant: number[]; dire: number[] },
+  assignments: {
+    radiant: Record<number, LaneAssignment | undefined>
+    dire: Record<number, LaneAssignment | undefined>
+  },
   matchups: Record<number, HeroMatchup[]>,
   potentialCount = 3,
 ): HeroCounterpickInfo[] {
@@ -178,13 +215,15 @@ export function computeCounterpicks(
   const results: HeroCounterpickInfo[] = []
 
   const processSide = (side: Side) => {
+    const enemySide: Side = side === 'radiant' ? 'dire' : 'radiant'
     const myPicks = picks[side]
-    const enemyPicks = picks[side === 'radiant' ? 'dire' : 'radiant']
+    const enemyPicks = picks[enemySide]
 
     for (const heroId of myPicks) {
       const hero = heroesById[heroId]
       if (!hero) continue
       const heroMatchups = matchups[heroId] ?? []
+      const heroPos = assignmentToPos(assignments[side][heroId])
 
       // 1. Active counters from enemy team
       const counters: Counterpick[] = []
@@ -194,37 +233,40 @@ export function computeCounterpicks(
         const m = heroMatchups.find((x) => x.hero_id === enemyId)
         if (!m || m.games_played === 0) continue
         const wr = m.wins / m.games_played
-        // Only show as counter if winrate is below 50%
         if (wr < 0.5) {
           counters.push({
             hero,
+            heroPos,
             counter: enemy,
+            counterPos: assignmentToPos(assignments[enemySide][enemyId]),
             winrate: wr,
             games: m.games_played,
           })
         }
       }
-      counters.sort((a, b) => a.winrate - b.winrate) // worst matchup first
+      counters.sort((a, b) => a.winrate - b.winrate)
 
-      // 2. Potential counters — heroes not in draft that would be strong against this hero
+      // 2. Potential counters — heroes not in draft
       const potentials: PotentialCounterpick[] = heroMatchups
         .filter(
           (m) =>
             m.games_played >= 100 &&
             !unavailable.has(m.hero_id) &&
             heroesById[m.hero_id] &&
-            m.wins / m.games_played < 0.48, // meaningful counter threshold
+            m.wins / m.games_played < 0.48,
         )
         .map((m) => ({
           hero,
+          heroPos,
           counter: heroesById[m.hero_id],
+          counterPos: estimatePos(heroesById[m.hero_id]),
           winrate: m.wins / m.games_played,
           games: m.games_played,
         }))
         .sort((a, b) => a.winrate - b.winrate)
         .slice(0, potentialCount)
 
-      results.push({ hero, side, counters, potentials })
+      results.push({ hero, side, heroPos, counters, potentials })
     }
   }
 
