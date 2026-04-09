@@ -6,6 +6,9 @@ import './index.css'
 import Home from './pages/Home'
 import Room from './pages/Room'
 import Sandbox from './pages/Sandbox'
+import Solo from './pages/Solo'
+import QuickCounter from './pages/QuickCounter'
+import MatchAnalysis from './pages/MatchAnalysis'
 
 const qc = new QueryClient()
 
@@ -17,6 +20,9 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/" element={<Home />} />
           <Route path="/room/:id" element={<Room />} />
           <Route path="/sandbox" element={<Sandbox />} />
+          <Route path="/solo" element={<Solo />} />
+          <Route path="/quick-counter" element={<QuickCounter />} />
+          <Route path="/match" element={<MatchAnalysis />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

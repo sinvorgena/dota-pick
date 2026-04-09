@@ -125,7 +125,7 @@ export function HeroPool({ heroes, draft, canAct, onPick }: Props) {
                             ? () => handlePick(h.id)
                             : undefined
                         }
-                        title={`${h.localized_name} · power ${h.lanePower}`}
+                        title={h.localized_name}
                       />
                     )
                   })}

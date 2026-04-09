@@ -50,10 +50,67 @@ export function Verdict({ byId }: { byId: Record<number, Hero> }) {
   const radiantCPs = counterpicks.filter((c) => c.side === 'radiant')
   const direCPs = counterpicks.filter((c) => c.side === 'dire')
 
+  // Pick/ban effectiveness
+  const pickBanStats = useMemo(() => {
+    if (!matchups) return null
+
+    const evalPicks = (pickedIds: number[], enemyIds: number[]) => {
+      return pickedIds.map((hid) => {
+        const hero = byId[hid]
+        const hMatchups = matchups[hid] ?? []
+        let totalWr = 0
+        let totalGames = 0
+        let pairCount = 0
+        for (const eid of enemyIds) {
+          const m = hMatchups.find((x) => x.hero_id === eid)
+          if (m && m.games_played > 0) {
+            totalWr += (m.wins / m.games_played) * m.games_played
+            totalGames += m.games_played
+            pairCount++
+          }
+        }
+        const avgWr = totalGames > 0 ? totalWr / totalGames : 0.5
+        return { hero, winrate: avgWr, games: totalGames, pairs: pairCount }
+      })
+    }
+
+    const evalBans = (bannedIds: number[], enemyPickIds: number[]) => {
+      return bannedIds.map((hid) => {
+        const hero = byId[hid]
+        const hMatchups = matchups[hid] ?? []
+        // How well would this hero do against the enemy team?
+        let totalWr = 0
+        let totalGames = 0
+        let pairCount = 0
+        for (const eid of enemyPickIds) {
+          const m = hMatchups.find((x) => x.hero_id === eid)
+          if (m && m.games_played > 0) {
+            totalWr += (m.wins / m.games_played) * m.games_played
+            totalGames += m.games_played
+            pairCount++
+          }
+        }
+        const avgWr = totalGames > 0 ? totalWr / totalGames : 0.5
+        // WR > 0.5 means banning this was GOOD for the enemy (would've been strong)
+        return { hero, winrate: avgWr, games: totalGames, pairs: pairCount }
+      })
+    }
+
+    return {
+      radiantPicks: evalPicks(draft.picks.radiant, draft.picks.dire),
+      direPicks: evalPicks(draft.picks.dire, draft.picks.radiant),
+      radiantBans: evalBans(draft.bans.radiant, draft.picks.dire),
+      direBans: evalBans(draft.bans.dire, draft.picks.radiant),
+    }
+  }, [byId, draft.picks, draft.bans, matchups])
+
   return (
     <div className="space-y-6">
       {/* Overall win probability */}
       <WinProbabilityBar winProb={winProb} isLoading={isLoading} />
+
+      {/* Pick/ban effectiveness */}
+      {pickBanStats && <PickBanStats stats={pickBanStats} />}
 
       {/* Lane analysis */}
       <div>
@@ -109,6 +166,129 @@ export function Verdict({ byId }: { byId: Record<number, Hero> }) {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Pick/ban effectiveness
+// ---------------------------------------------------------------------------
+
+interface HeroStat {
+  hero: Hero
+  winrate: number
+  games: number
+  pairs: number
+}
+
+function PickBanStats({
+  stats,
+}: {
+  stats: {
+    radiantPicks: HeroStat[]
+    direPicks: HeroStat[]
+    radiantBans: HeroStat[]
+    direBans: HeroStat[]
+  }
+}) {
+  return (
+    <div className="bg-panel border border-border rounded-lg p-4 space-y-4">
+      <div>
+        <h2 className="text-xl font-semibold">Успешность пиков и банов</h2>
+        <p className="text-xs text-zinc-500 mt-1">
+          Пики: винрейт героя против вражеской команды. Баны: насколько забаненный герой был бы силён против вражеских пиков.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        {/* Radiant */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-emerald-400">Radiant</h3>
+          <div className="space-y-1">
+            <div className="text-[10px] uppercase tracking-wider text-zinc-500">
+              пики
+            </div>
+            {stats.radiantPicks.map((s) => (
+              <StatRow key={s.hero.id} stat={s} mode="pick" />
+            ))}
+          </div>
+          {stats.radiantBans.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-[10px] uppercase tracking-wider text-zinc-500">
+                баны
+              </div>
+              {stats.radiantBans.map((s) => (
+                <StatRow key={s.hero.id} stat={s} mode="ban" />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Dire */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-rose-400">Dire</h3>
+          <div className="space-y-1">
+            <div className="text-[10px] uppercase tracking-wider text-zinc-500">
+              пики
+            </div>
+            {stats.direPicks.map((s) => (
+              <StatRow key={s.hero.id} stat={s} mode="pick" />
+            ))}
+          </div>
+          {stats.direBans.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-[10px] uppercase tracking-wider text-zinc-500">
+                баны
+              </div>
+              {stats.direBans.map((s) => (
+                <StatRow key={s.hero.id} stat={s} mode="ban" />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function StatRow({ stat, mode }: { stat: HeroStat; mode: 'pick' | 'ban' }) {
+  if (!stat.hero) return null
+  const wr = stat.winrate * 100
+  const isGood =
+    mode === 'pick' ? wr >= 52 : wr >= 52 // for ban: high wr means the ban was justified
+  const isBad = mode === 'pick' ? wr <= 48 : wr <= 48
+
+  return (
+    <div className="flex items-center gap-2 text-xs bg-bg/60 rounded px-2 py-1">
+      <div className="w-8 shrink-0">
+        <HeroIcon hero={stat.hero} banned={mode === 'ban'} />
+      </div>
+      <span className="text-zinc-300 truncate">{stat.hero.localized_name}</span>
+      <span
+        className={`ml-auto font-semibold ${
+          isGood
+            ? 'text-emerald-400'
+            : isBad
+              ? 'text-rose-400'
+              : 'text-zinc-300'
+        }`}
+      >
+        {wr.toFixed(1)}%
+      </span>
+      {stat.games > 0 && (
+        <span className="text-zinc-600 shrink-0">
+          {stat.games.toLocaleString()} игр
+        </span>
+      )}
+      {mode === 'ban' && (
+        <span
+          className={`text-[10px] ${
+            wr >= 52 ? 'text-emerald-600' : wr <= 48 ? 'text-rose-600' : 'text-zinc-600'
+          }`}
+        >
+          {wr >= 52 ? 'хороший бан' : wr <= 48 ? 'бан не нужен' : 'нейтральный'}
+        </span>
+      )}
     </div>
   )
 }

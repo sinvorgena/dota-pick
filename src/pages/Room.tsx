@@ -4,6 +4,7 @@ import { useDraftStore } from '../store/draftStore'
 import { useRoom } from '../hooks/useRoom'
 import { useHeroes } from '../hooks/useHeroes'
 import { CM_SEQUENCE, type Side } from '../types'
+import { useTimer } from '../hooks/useTimer'
 import { DraftBoard } from '../components/DraftBoard'
 import { DraftStatusBar } from '../components/DraftStatusBar'
 import { HeroPool } from '../components/HeroPool'
@@ -16,6 +17,15 @@ export default function Room() {
   const isHost = params.get('host') === '1'
 
   const { data: heroes, byId, isLoading } = useHeroes()
+
+  // Reset store when entering a new room so stale side/opponent state
+  // from a previous session doesn't leak (fixes missing side-picker bug).
+  const reset = useDraftStore((s) => s.reset)
+  useEffect(() => {
+    reset()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
+
   const { status, error, sendHello } = useRoom(id, isHost)
 
   const draft = useDraftStore((s) => s.draft)
@@ -27,7 +37,6 @@ export default function Room() {
   const setPhase = useDraftStore((s) => s.setPhase)
   const pickHero = useDraftStore((s) => s.pickHero)
   const finishAssigning = useDraftStore((s) => s.finishAssigning)
-  const reset = useDraftStore((s) => s.reset)
   const undo = useDraftStore((s) => s.undo)
   const redo = useDraftStore((s) => s.redo)
 
@@ -70,6 +79,22 @@ export default function Room() {
   const action = CM_SEQUENCE[draft.step]
   const canAct =
     draft.phase === 'drafting' && !!action && !!mySide && action.side === mySide
+
+  // Pro-match style timer — starts when both players connect and draft begins
+  const { timer, startTimer } = useTimer(
+    draft.step,
+    draft.phase,
+    action?.kind ?? null,
+    action?.side ?? null,
+    draft.phase === 'drafting',
+  )
+
+  // Start timer when drafting begins
+  useEffect(() => {
+    if (draft.phase === 'drafting' && !timer.running && opponentReady) {
+      startTimer()
+    }
+  }, [draft.phase, timer.running, opponentReady, startTimer])
 
   if (isLoading || !heroes) {
     return <div className="p-6 text-zinc-400">Загрузка героев...</div>
@@ -194,7 +219,7 @@ export default function Room() {
       {/* Drafting phase */}
       {(draft.phase === 'drafting' || draft.phase === 'lobby') && mySide && (
         <>
-          <DraftStatusBar draft={draft} mySide={mySide} />
+          <DraftStatusBar draft={draft} mySide={mySide} timer={timer} />
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
             <div>
               {draft.phase === 'drafting' && (
@@ -214,7 +239,7 @@ export default function Room() {
       {/* Assigning phase */}
       {draft.phase === 'assigning' && (
         <>
-          <DraftStatusBar draft={draft} mySide={mySide} />
+          <DraftStatusBar draft={draft} mySide={mySide} timer={timer} />
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
             <div className="space-y-3">
               <div className="text-sm text-zinc-400">

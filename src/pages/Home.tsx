@@ -2,9 +2,6 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { customAlphabet } from 'nanoid'
 
-// lowercase letters + digits only — no `_-`, so the resulting peer id
-// (`<prefix>-<id>`) always passes the public PeerJS broker's validation
-// regex `^[A-Za-z0-9]+(?:[_-][A-Za-z0-9]+)*$`.
 const makeRoomId = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 8)
 
 export default function Home() {
@@ -28,40 +25,79 @@ export default function Home() {
         <div>
           <h1 className="text-3xl font-bold mb-1">Dota 2 · Captains Draft</h1>
           <p className="text-sm text-zinc-400">
-            Драфт 1×1 с другом. Создайте комнату и пошарьте ссылку.
+            Драфт, анализ и тренировка контрпиков.
           </p>
         </div>
 
-        <button
-          onClick={create}
-          className="w-full bg-emerald-600 hover:bg-emerald-500 transition rounded-lg py-3 font-semibold"
-        >
-          Создать комнату
-        </button>
-
-        <div className="text-center text-zinc-500 text-xs">или</div>
-
+        {/* Multiplayer */}
         <div className="space-y-2">
-          <input
-            value={joinId}
-            onChange={(e) => setJoinId(e.target.value)}
-            placeholder="ID комнаты"
-            className="w-full bg-bg border border-border rounded-lg px-3 py-2 outline-none focus:border-zinc-500"
-          />
+          <div className="text-xs text-zinc-500 uppercase tracking-wider">
+            Мультиплеер
+          </div>
           <button
-            onClick={join}
-            className="w-full bg-zinc-700 hover:bg-zinc-600 transition rounded-lg py-3 font-semibold"
+            onClick={create}
+            className="w-full bg-emerald-600 hover:bg-emerald-500 transition rounded-lg py-3 font-semibold"
           >
-            Войти в комнату
+            Создать комнату
+          </button>
+          <div className="flex gap-2">
+            <input
+              value={joinId}
+              onChange={(e) => setJoinId(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && join()}
+              placeholder="ID комнаты"
+              className="flex-1 bg-bg border border-border rounded-lg px-3 py-2 outline-none focus:border-zinc-500"
+            />
+            <button
+              onClick={join}
+              className="bg-zinc-700 hover:bg-zinc-600 transition rounded-lg px-4 py-2 font-semibold text-sm"
+            >
+              Войти
+            </button>
+          </div>
+        </div>
+
+        {/* Solo modes */}
+        <div className="space-y-2 border-t border-border pt-4">
+          <div className="text-xs text-zinc-500 uppercase tracking-wider">
+            Одиночные режимы
+          </div>
+          <button
+            onClick={() => navigate('/solo')}
+            className="w-full bg-zinc-700 hover:bg-zinc-600 transition rounded-lg py-3 font-semibold text-left px-4"
+          >
+            <div>Solo Draft</div>
+            <div className="text-xs text-zinc-400 font-normal">
+              Полный капитанский драфт — пикай за обе стороны
+            </div>
+          </button>
+          <button
+            onClick={() => navigate('/quick-counter')}
+            className="w-full bg-zinc-700 hover:bg-zinc-600 transition rounded-lg py-3 font-semibold text-left px-4"
+          >
+            <div>Quick Counterpick</div>
+            <div className="text-xs text-zinc-400 font-normal">
+              Случайный герой — выбери контрпик, проверь винрейт
+            </div>
           </button>
         </div>
 
-        <div className="border-t border-border pt-4">
+        {/* Tools */}
+        <div className="space-y-2 border-t border-border pt-4">
+          <div className="text-xs text-zinc-500 uppercase tracking-wider">
+            Инструменты
+          </div>
+          <button
+            onClick={() => navigate('/match')}
+            className="w-full text-sm text-zinc-400 hover:text-zinc-200 text-left py-2"
+          >
+            Анализ матча · загрузи матч по ID и разбери драфт →
+          </button>
           <button
             onClick={() => navigate('/sandbox')}
-            className="w-full text-sm text-zinc-400 hover:text-zinc-200"
+            className="w-full text-sm text-zinc-400 hover:text-zinc-200 text-left py-2"
           >
-            Sandbox · тестовые драфты без соперника →
+            Sandbox · тестовые драфты →
           </button>
         </div>
       </div>
