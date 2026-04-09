@@ -8,11 +8,44 @@ export interface HeroMatchup {
   wins: number // wins from the requested hero's perspective
 }
 
+// ---------------------------------------------------------------------------
+// Static Stratz matchup data (Divine+Immortal bracket snapshot)
+// ---------------------------------------------------------------------------
+
+let stratzData: Record<number, HeroMatchup[]> | null = null
+let stratzLoading: Promise<Record<number, HeroMatchup[]>> | null = null
+
+async function loadStratzData(): Promise<Record<number, HeroMatchup[]>> {
+  if (stratzData) return stratzData
+  if (stratzLoading) return stratzLoading
+  stratzLoading = (async () => {
+    try {
+      const mod = await import('../data/stratz-matchups.json')
+      // JSON import: keys are string hero ids, values are HeroMatchup[]
+      const raw = mod.default as Record<string, HeroMatchup[]>
+      const result: Record<number, HeroMatchup[]> = {}
+      for (const [k, v] of Object.entries(raw)) {
+        result[Number(k)] = v
+      }
+      stratzData = result
+      return result
+    } catch {
+      console.warn('[matchups] stratz-matchups.json not found, falling back to OpenDota')
+      stratzData = {}
+      return {}
+    }
+  })()
+  return stratzLoading
+}
+
 /**
- * GET /heroes/{id}/matchups — list of matchups against every other hero
- * (across all roles, public matches). Used as overall pairwise winrate proxy.
+ * Fetch matchups for a hero. Uses static Stratz data (Divine+Immortal)
+ * if available, otherwise falls back to OpenDota API.
  */
 export async function fetchHeroMatchups(heroId: number): Promise<HeroMatchup[]> {
+  const data = await loadStratzData()
+  if (data[heroId]) return data[heroId]
+  // Fallback to OpenDota if Stratz data missing for this hero
   return ky.get(`${OPEN_DOTA}/heroes/${heroId}/matchups`).json<HeroMatchup[]>()
 }
 
