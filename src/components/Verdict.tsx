@@ -6,9 +6,13 @@ import { useDraftStore } from '../store/draftStore'
 import { useHeroMatchups, useSampleMatches } from '../hooks/useMatchups'
 import {
   computeRealLaneResults,
+  computeCounterpicks,
+  computeOverallWinProbability,
   realVerdictColor,
   realVerdictLabel,
   type RealLaneResult,
+  type HeroCounterpickInfo,
+  type WinProbability,
 } from '../lib/realMatchup'
 
 export function Verdict({ byId }: { byId: Record<number, Hero> }) {
@@ -25,14 +29,30 @@ export function Verdict({ byId }: { byId: Record<number, Hero> }) {
     [byId, draft.picks, draft.assignments, matchups],
   )
 
+  const counterpicks = useMemo(
+    () => computeCounterpicks(byId, draft.picks, draft.bans, matchups, 3),
+    [byId, draft.picks, draft.bans, matchups],
+  )
+
+  const winProb = useMemo(
+    () => computeOverallWinProbability(draft.picks, matchups),
+    [draft.picks, matchups],
+  )
+
+  const radiantCPs = counterpicks.filter((c) => c.side === 'radiant')
+  const direCPs = counterpicks.filter((c) => c.side === 'dire')
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Overall win probability */}
+      <WinProbabilityBar winProb={winProb} isLoading={isLoading} />
+
+      {/* Lane analysis */}
       <div>
-        <h2 className="text-xl font-semibold">Анализ лайнов · реальные матчи</h2>
+        <h2 className="text-xl font-semibold">Анализ лайнов</h2>
         <p className="text-xs text-zinc-500 mt-1">
           Источник: OpenDota — public matches последнего патча. Для каждой пары
-          (radiant hero × dire hero) на лайне берётся винрейт и усредняется с
-          весом по сыгранным играм.
+          (radiant × dire) на лайне берётся винрейт, усреднённый с весом по играм.
         </p>
         {isLoading && (
           <div className="text-xs text-zinc-400 mt-2">
@@ -51,9 +71,198 @@ export function Verdict({ byId }: { byId: Record<number, Hero> }) {
           <LaneCard key={r.lane} result={r} />
         ))}
       </div>
+
+      {/* Counterpicks section */}
+      <div>
+        <h2 className="text-xl font-semibold">Контрпики</h2>
+        <p className="text-xs text-zinc-500 mt-1">
+          Кто из вражеской команды контрит каждого героя + 3 потенциальных
+          контрпика, которые не были пикнуты/забанены.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <h3 className="text-sm font-semibold text-emerald-400 mb-2">
+            Radiant
+          </h3>
+          <div className="space-y-2">
+            {radiantCPs.map((c) => (
+              <CounterpickCard key={c.hero.id} info={c} byId={byId} />
+            ))}
+          </div>
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-rose-400 mb-2">Dire</h3>
+          <div className="space-y-2">
+            {direCPs.map((c) => (
+              <CounterpickCard key={c.hero.id} info={c} byId={byId} />
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
+
+// ---------------------------------------------------------------------------
+// Win probability bar
+// ---------------------------------------------------------------------------
+
+function WinProbabilityBar({
+  winProb,
+  isLoading,
+}: {
+  winProb: WinProbability
+  isLoading: boolean
+}) {
+  const rPct = (winProb.radiantWinProb * 100).toFixed(1)
+  const dPct = ((1 - winProb.radiantWinProb) * 100).toFixed(1)
+  const rWidth = Math.max(winProb.radiantWinProb * 100, 5)
+  const dWidth = Math.max((1 - winProb.radiantWinProb) * 100, 5)
+
+  const delta = Math.abs(winProb.radiantWinProb - 0.5) * 100
+  let summary: string
+  if (isLoading) summary = 'Расчёт...'
+  else if (winProb.pairsCount === 0) summary = 'Нет данных для расчёта'
+  else if (delta < 1) summary = 'Драфт абсолютно равный'
+  else if (delta < 2.5) summary = 'Драфт почти равный'
+  else if (delta < 5)
+    summary = `Небольшое преимущество ${winProb.radiantWinProb > 0.5 ? 'Radiant' : 'Dire'}`
+  else
+    summary = `Преимущество ${winProb.radiantWinProb > 0.5 ? 'Radiant' : 'Dire'}`
+
+  return (
+    <div className="bg-panel border border-border rounded-lg p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold">Шанс выигрыша</h2>
+        <span className="text-xs text-zinc-500">
+          {winProb.pairsCount} пар · {winProb.totalGames.toLocaleString()} игр
+        </span>
+      </div>
+
+      <div className="flex h-8 rounded overflow-hidden text-sm font-bold">
+        <div
+          className="bg-emerald-600 flex items-center justify-center transition-all duration-500"
+          style={{ width: `${rWidth}%` }}
+        >
+          {rPct}%
+        </div>
+        <div
+          className="bg-rose-600 flex items-center justify-center transition-all duration-500"
+          style={{ width: `${dWidth}%` }}
+        >
+          {dPct}%
+        </div>
+      </div>
+
+      <div className="flex justify-between text-xs">
+        <span className="text-emerald-400">Radiant</span>
+        <span
+          className={
+            delta < 2.5
+              ? 'text-zinc-400'
+              : winProb.radiantWinProb > 0.5
+                ? 'text-emerald-400'
+                : 'text-rose-400'
+          }
+        >
+          {summary}
+        </span>
+        <span className="text-rose-400">Dire</span>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Counterpick card per hero
+// ---------------------------------------------------------------------------
+
+function CounterpickCard({
+  info,
+}: {
+  info: HeroCounterpickInfo
+  byId: Record<number, Hero>
+}) {
+  const hasCounters = info.counters.length > 0
+  const hasPotentials = info.potentials.length > 0
+
+  return (
+    <div className="bg-panel border border-border rounded-lg p-3 space-y-2">
+      {/* Hero header */}
+      <div className="flex items-center gap-2">
+        <div className="w-12">
+          <HeroIcon hero={info.hero} />
+        </div>
+        <div>
+          <div className="text-sm font-semibold">
+            {info.hero.localized_name}
+          </div>
+          {!hasCounters && !hasPotentials && (
+            <div className="text-xs text-zinc-500">контрпиков нет</div>
+          )}
+        </div>
+      </div>
+
+      {/* Active counters from enemy team */}
+      {hasCounters && (
+        <div className="space-y-1">
+          <div className="text-[10px] uppercase tracking-wider text-zinc-500">
+            контрят из вражеского пика
+          </div>
+          {info.counters.map((c) => (
+            <div
+              key={c.counter.id}
+              className="flex items-center gap-2 text-xs bg-bg/60 rounded px-2 py-1"
+            >
+              <div className="w-8">
+                <HeroIcon hero={c.counter} />
+              </div>
+              <span className="text-zinc-300">{c.counter.localized_name}</span>
+              <span className="ml-auto text-rose-400 font-semibold">
+                {(c.winrate * 100).toFixed(1)}%
+              </span>
+              <span className="text-zinc-600">
+                {c.games.toLocaleString()} игр
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Potential counters not in draft */}
+      {hasPotentials && (
+        <div className="space-y-1">
+          <div className="text-[10px] uppercase tracking-wider text-zinc-500">
+            могли контрить (не пикнуты/забанены)
+          </div>
+          {info.potentials.map((p) => (
+            <div
+              key={p.counter.id}
+              className="flex items-center gap-2 text-xs bg-bg/60 rounded px-2 py-1 opacity-70"
+            >
+              <div className="w-8">
+                <HeroIcon hero={p.counter} />
+              </div>
+              <span className="text-zinc-400">{p.counter.localized_name}</span>
+              <span className="ml-auto text-amber-400">
+                {(p.winrate * 100).toFixed(1)}%
+              </span>
+              <span className="text-zinc-600">
+                {p.games.toLocaleString()} игр
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Lane card (unchanged)
+// ---------------------------------------------------------------------------
 
 function LaneCard({ result }: { result: RealLaneResult }) {
   const wrPct =

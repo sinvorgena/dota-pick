@@ -1,4 +1,4 @@
-import type { Hero, Lane, LaneAssignment } from '../types'
+import type { Hero, Lane, LaneAssignment, Side } from '../types'
 import type { HeroMatchup } from '../api/matchups'
 
 export type RealVerdict =
@@ -127,4 +127,154 @@ export function computeRealLaneResults(
       verdict,
     }
   })
+}
+
+// ---------------------------------------------------------------------------
+// Counterpick analysis
+// ---------------------------------------------------------------------------
+
+export interface Counterpick {
+  hero: Hero
+  /** Enemy hero that counters `hero` */
+  counter: Hero
+  /** Winrate of `hero` AGAINST `counter` — lower = stronger counter */
+  winrate: number
+  games: number
+}
+
+export interface PotentialCounterpick {
+  hero: Hero
+  /** Hero NOT in the draft that would counter `hero` */
+  counter: Hero
+  winrate: number
+  games: number
+}
+
+export interface HeroCounterpickInfo {
+  hero: Hero
+  side: Side
+  /** Enemy heroes from the draft that counter this hero (sorted worst first) */
+  counters: Counterpick[]
+  /** Top N heroes outside the draft that could have countered this hero */
+  potentials: PotentialCounterpick[]
+}
+
+/**
+ * For every picked hero, compute:
+ * 1. Which enemy heroes counter it (WR < 50% from the hero's POV)
+ * 2. Top `potentialCount` heroes that aren't picked/banned that would counter it
+ */
+export function computeCounterpicks(
+  heroesById: Record<number, Hero>,
+  picks: { radiant: number[]; dire: number[] },
+  bans: { radiant: number[]; dire: number[] },
+  matchups: Record<number, HeroMatchup[]>,
+  potentialCount = 3,
+): HeroCounterpickInfo[] {
+  const allPicked = new Set([...picks.radiant, ...picks.dire])
+  const allBanned = new Set([...bans.radiant, ...bans.dire])
+  const unavailable = new Set([...allPicked, ...allBanned])
+
+  const results: HeroCounterpickInfo[] = []
+
+  const processSide = (side: Side) => {
+    const myPicks = picks[side]
+    const enemyPicks = picks[side === 'radiant' ? 'dire' : 'radiant']
+
+    for (const heroId of myPicks) {
+      const hero = heroesById[heroId]
+      if (!hero) continue
+      const heroMatchups = matchups[heroId] ?? []
+
+      // 1. Active counters from enemy team
+      const counters: Counterpick[] = []
+      for (const enemyId of enemyPicks) {
+        const enemy = heroesById[enemyId]
+        if (!enemy) continue
+        const m = heroMatchups.find((x) => x.hero_id === enemyId)
+        if (!m || m.games_played === 0) continue
+        const wr = m.wins / m.games_played
+        // Only show as counter if winrate is below 50%
+        if (wr < 0.5) {
+          counters.push({
+            hero,
+            counter: enemy,
+            winrate: wr,
+            games: m.games_played,
+          })
+        }
+      }
+      counters.sort((a, b) => a.winrate - b.winrate) // worst matchup first
+
+      // 2. Potential counters — heroes not in draft that would be strong against this hero
+      const potentials: PotentialCounterpick[] = heroMatchups
+        .filter(
+          (m) =>
+            m.games_played >= 100 &&
+            !unavailable.has(m.hero_id) &&
+            heroesById[m.hero_id] &&
+            m.wins / m.games_played < 0.48, // meaningful counter threshold
+        )
+        .map((m) => ({
+          hero,
+          counter: heroesById[m.hero_id],
+          winrate: m.wins / m.games_played,
+          games: m.games_played,
+        }))
+        .sort((a, b) => a.winrate - b.winrate)
+        .slice(0, potentialCount)
+
+      results.push({ hero, side, counters, potentials })
+    }
+  }
+
+  processSide('radiant')
+  processSide('dire')
+
+  return results
+}
+
+// ---------------------------------------------------------------------------
+// Overall win probability
+// ---------------------------------------------------------------------------
+
+export interface WinProbability {
+  /** Radiant win probability 0..1 */
+  radiantWinProb: number
+  /** Total pairwise matchups considered */
+  totalGames: number
+  /** Number of individual matchup pairs */
+  pairsCount: number
+}
+
+/**
+ * Compute overall win probability based on ALL pairwise matchups between
+ * radiant and dire heroes (not just lane-based). Uses weighted average of
+ * winrates across all 5v5 hero pairs (up to 25 pairs).
+ */
+export function computeOverallWinProbability(
+  picks: { radiant: number[]; dire: number[] },
+  matchups: Record<number, HeroMatchup[]>,
+): WinProbability {
+  let weightedSum = 0
+  let totalGames = 0
+  let pairsCount = 0
+
+  for (const rId of picks.radiant) {
+    const rMatchups = matchups[rId] ?? []
+    for (const dId of picks.dire) {
+      const m = rMatchups.find((x) => x.hero_id === dId)
+      if (!m || m.games_played === 0) continue
+      const wr = m.wins / m.games_played
+      weightedSum += wr * m.games_played
+      totalGames += m.games_played
+      pairsCount++
+    }
+  }
+
+  return {
+    radiantWinProb: totalGames > 0 ? weightedSum / totalGames : 0.5,
+    totalGames,
+    pairsCount,
+  }
 }
