@@ -10,6 +10,8 @@ interface Props {
   onClick?: () => void
   selectable?: boolean
   title?: string
+  /** Small badge overlay (e.g. winrate hint) */
+  badge?: { label: string; color: string } | null
 }
 
 export function HeroIcon({
@@ -20,6 +22,7 @@ export function HeroIcon({
   onClick,
   selectable,
   title,
+  badge,
 }: Props) {
   const src = variant === 'portrait' ? heroPortrait(hero.shortName) : heroImg(hero.shortName)
   const aspect = variant === 'portrait' ? 'aspect-[71/94]' : 'aspect-[16/9]'
@@ -55,6 +58,16 @@ export function HeroIcon({
       {banned && (
         <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
           <div className="w-full h-[2px] bg-rose-500 rotate-[-15deg]" />
+        </div>
+      )}
+      {badge && (
+        <div
+          className={clsx(
+            'absolute top-0 right-0 z-20 text-[9px] font-bold leading-tight px-0.5 rounded-bl',
+            badge.color,
+          )}
+        >
+          {badge.label}
         </div>
       )}
     </button>

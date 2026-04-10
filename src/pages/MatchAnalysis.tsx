@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import ky from 'ky'
 import { useHeroes } from '../hooks/useHeroes'
 import { useDraftStore } from '../store/draftStore'
-import type { DraftState, LaneAssignment } from '../types'
+import type { DraftState, Lane, Role } from '../types'
 import { HeroIcon } from '../components/HeroIcon'
 
 const OPEN_DOTA = 'https://api.opendota.com/api'
@@ -43,12 +43,64 @@ interface MatchData {
   }>
 }
 
-function laneFromSlot(laneRole: number, slot: number): LaneAssignment | undefined {
-  const isSupport = slot % 128 >= 3 // slots 3,4 (or 131,132) are supports
-  if (laneRole === 1) return { lane: 'safe', role: isSupport ? 'support' : 'core' }
-  if (laneRole === 2) return { lane: 'mid', role: 'core' }
-  if (laneRole === 3) return { lane: 'off', role: isSupport ? 'support' : 'core' }
-  return undefined
+/**
+ * Map OpenDota player data to a lane assignment.
+ *
+ * OpenDota fields:
+ *   lane_role: 1=safe, 2=mid, 3=off, 0=unknown/roaming
+ *   is_roaming: boolean
+ *   player_slot: 0-4 radiant, 128-132 dire (team index, NOT role)
+ *
+ * We determine core vs support based on gold_per_min: within the same side,
+ * higher GPM players are cores. This is much more reliable than player_slot
+ * which is just a team index.
+ */
+function buildAssignments(
+  players: MatchPlayer[],
+): DraftState['assignments'] {
+  const assignments: DraftState['assignments'] = { radiant: {}, dire: {} }
+
+  for (const side of ['radiant', 'dire'] as const) {
+    const sidePlayers = players
+      .filter((p) => (side === 'radiant' ? p.player_slot < 128 : p.player_slot >= 128))
+      .sort((a, b) => b.gold_per_min - a.gold_per_min)
+
+    // Top 3 by GPM are cores, bottom 2 are supports
+    const coreSet = new Set(sidePlayers.slice(0, 3).map((p) => p.hero_id))
+
+    for (const p of sidePlayers) {
+      const isCore = coreSet.has(p.hero_id)
+      let lane: Lane
+      if (p.lane_role === 1) lane = 'safe'
+      else if (p.lane_role === 2) lane = 'mid'
+      else if (p.lane_role === 3) lane = 'off'
+      else {
+        // Unknown lane — guess from role: supports default to safe (pos 5)
+        lane = isCore ? 'off' : 'safe'
+      }
+
+      const role: Role = isCore ? 'core' : 'support'
+
+      // Avoid duplicate lane+role by checking if already occupied
+      const existing = Object.values(assignments[side])
+      const occupied = existing.some((a) => a && a.lane === lane && a.role === role)
+      if (occupied) {
+        // Try alternative lane placement
+        if (lane === 'safe' && !existing.some((a) => a && a.lane === 'off' && a.role === role)) {
+          lane = 'off'
+        } else if (lane === 'off' && !existing.some((a) => a && a.lane === 'safe' && a.role === role)) {
+          lane = 'safe'
+        }
+        // If still occupied, skip — better to leave unassigned than corrupt
+        const stillOccupied = existing.some((a) => a && a.lane === lane && a.role === role)
+        if (stillOccupied) continue
+      }
+
+      assignments[side][p.hero_id] = { lane, role }
+    }
+  }
+
+  return assignments
 }
 
 function formatDuration(sec: number) {
@@ -98,8 +150,6 @@ export default function MatchAnalysis() {
     const direPicks: number[] = []
     const radiantBans: number[] = []
     const direBans: number[] = []
-    const assignments: DraftState['assignments'] = { radiant: {}, dire: {} }
-
     // If match has picks_bans (CM mode), use them
     if (match.picks_bans && match.picks_bans.length > 0) {
       for (const pb of match.picks_bans) {
@@ -120,12 +170,8 @@ export default function MatchAnalysis() {
       }
     }
 
-    // Build lane assignments from player data
-    for (const p of match.players) {
-      const side = p.player_slot < 128 ? 'radiant' : 'dire'
-      const a = laneFromSlot(p.lane_role, p.player_slot)
-      if (a) assignments[side][p.hero_id] = a
-    }
+    // Build lane assignments from player data (GPM-based core/support detection)
+    const assignments = buildAssignments(match.players)
 
     const draftState: DraftState = {
       phase: 'assigning',

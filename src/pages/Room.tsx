@@ -5,6 +5,7 @@ import { useRoom } from '../hooks/useRoom'
 import { useHeroes } from '../hooks/useHeroes'
 import { CM_SEQUENCE, type Side } from '../types'
 import { useTimer } from '../hooks/useTimer'
+import { useHints } from '../hooks/useHints'
 import { DraftBoard } from '../components/DraftBoard'
 import { DraftStatusBar } from '../components/DraftStatusBar'
 import { HeroPool } from '../components/HeroPool'
@@ -96,6 +97,9 @@ export default function Room() {
     }
   }, [draft.phase, timer.running, opponentReady, startTimer])
 
+  // Hint system
+  const { hints, hintActive, toggleHint, isBan, hintLoading } = useHints(draft, mySide)
+
   if (isLoading || !heroes) {
     return <div className="p-6 text-zinc-400">Загрузка героев...</div>
   }
@@ -150,6 +154,18 @@ export default function Room() {
             title="Cmd/Ctrl+Shift+Z"
           >
             redo →
+          </button>
+          <button
+            onClick={toggleHint}
+            disabled={draft.phase !== 'drafting'}
+            className={`text-xs rounded px-3 py-1.5 disabled:opacity-30 disabled:cursor-not-allowed ${
+              hintActive
+                ? 'bg-amber-700 hover:bg-amber-600 text-white'
+                : 'bg-zinc-700 hover:bg-zinc-600'
+            }`}
+            title="Подсказка: показывает рекомендуемые пики/баны"
+          >
+            {hintLoading ? '...' : hintActive ? '💡 подсказка ON' : '💡 подсказка'}
           </button>
           <button
             onClick={copy}
@@ -228,6 +244,8 @@ export default function Room() {
                   draft={draft}
                   canAct={canAct}
                   onPick={pickHero}
+                  hints={hintActive ? hints : null}
+                  isBan={isBan}
                 />
               )}
             </div>

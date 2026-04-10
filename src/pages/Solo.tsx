@@ -4,6 +4,7 @@ import { useDraftStore } from '../store/draftStore'
 import { useHeroes } from '../hooks/useHeroes'
 import { CM_SEQUENCE } from '../types'
 import { useTimer } from '../hooks/useTimer'
+import { useHints } from '../hooks/useHints'
 import { DraftBoard } from '../components/DraftBoard'
 import { DraftStatusBar } from '../components/DraftStatusBar'
 import { HeroPool } from '../components/HeroPool'
@@ -59,6 +60,9 @@ export default function Solo() {
   // In solo mode the player always can act during drafting
   const canAct = draft.phase === 'drafting' && !!action
 
+  // Hint system — in solo mode use current action's side
+  const { hints, hintActive, toggleHint, isBan, hintLoading } = useHints(draft, action?.side ?? null)
+
   const { timer, startTimer, resetTimer } = useTimer(
     draft.step,
     draft.phase,
@@ -101,6 +105,17 @@ export default function Solo() {
             redo →
           </button>
           <button
+            onClick={toggleHint}
+            disabled={draft.phase !== 'drafting'}
+            className={`text-xs rounded px-3 py-1.5 disabled:opacity-30 disabled:cursor-not-allowed ${
+              hintActive
+                ? 'bg-amber-700 hover:bg-amber-600 text-white'
+                : 'bg-zinc-700 hover:bg-zinc-600'
+            }`}
+          >
+            {hintLoading ? '...' : hintActive ? '💡 ON' : '💡'}
+          </button>
+          <button
             onClick={() => {
               if (!timerEnabled) {
                 setTimerEnabled(true)
@@ -141,6 +156,8 @@ export default function Solo() {
               draft={draft}
               canAct={canAct}
               onPick={pickHero}
+              hints={hintActive ? hints : null}
+              isBan={isBan}
             />
             <DraftBoard draft={draft} byId={byId} />
           </div>

@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DraftState, Hero } from '../types'
 import { HeroIcon } from './HeroIcon'
+import type { HintMap } from '../hooks/useHints'
 
 interface Props {
   heroes: Hero[]
   draft: DraftState
   canAct: boolean
   onPick: (heroId: number) => void
+  /** Optional hint map: hero id -> score. Shows WR badges on heroes. */
+  hints?: HintMap | null
+  /** Whether current action is a ban (affects badge color logic) */
+  isBan?: boolean
 }
 
 const ATTR_ICON =
@@ -24,7 +29,7 @@ const ATTR_GROUPS: {
   { key: 'all', label: 'Universal', color: 'text-amber-300', icon: `${ATTR_ICON}/hero_universal.png` },
 ]
 
-export function HeroPool({ heroes, draft, canAct, onPick }: Props) {
+export function HeroPool({ heroes, draft, canAct, onPick, hints, isBan }: Props) {
   const [q, setQ] = useState('')
 
   // Global keystroke search — like the Dota client.
@@ -113,6 +118,35 @@ export function HeroPool({ heroes, draft, canAct, onPick }: Props) {
                     const isTaken = taken.has(h.id)
                     const isMatch = matches(h)
                     const dim = isTaken || (ql.length > 0 && !isMatch)
+                    // Compute hint badge
+                    const hint = hints?.get(h.id)
+                    let badge: { label: string; color: string } | null = null
+                    if (hint && !isTaken) {
+                      const pct = (hint.score * 100).toFixed(0)
+                      if (isBan) {
+                        // Ban: high score = dangerous for us = good ban
+                        badge = {
+                          label: `${pct}%`,
+                          color:
+                            hint.score >= 0.52
+                              ? 'bg-rose-600 text-white'
+                              : hint.score <= 0.48
+                                ? 'bg-zinc-700 text-zinc-400'
+                                : 'bg-amber-700 text-white',
+                        }
+                      } else {
+                        // Pick: high score = good for us
+                        badge = {
+                          label: `${pct}%`,
+                          color:
+                            hint.score >= 0.52
+                              ? 'bg-emerald-600 text-white'
+                              : hint.score <= 0.48
+                                ? 'bg-rose-600 text-white'
+                                : 'bg-zinc-700 text-zinc-300',
+                        }
+                      }
+                    }
                     return (
                       <HeroIcon
                         key={h.id}
@@ -126,6 +160,7 @@ export function HeroPool({ heroes, draft, canAct, onPick }: Props) {
                             : undefined
                         }
                         title={h.localized_name}
+                        badge={badge}
                       />
                     )
                   })}
