@@ -32,7 +32,6 @@ export function useHints(draft: DraftState, mySide: Side | null) {
 
   const action = CM_SEQUENCE[draft.step]
   const isBan = action?.kind === 'ban'
-  const actionSide = action?.side ?? null
 
   // Determine which heroes to evaluate against
   const targetIds = useMemo(() => {

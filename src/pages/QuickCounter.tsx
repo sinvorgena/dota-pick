@@ -38,7 +38,7 @@ function pickRandomForPos(
   let pool = heroes.filter((h) => {
     if (exclude.has(h.id)) return false
     if (isSupport && CORE_ONLY_NAMES.has(h.shortName)) return false
-    return h.roles.some((r) => pos.roleHints.includes(r))
+    return h.roles.some((r) => (pos.roleHints as readonly string[]).includes(r))
   })
   if (pool.length === 0) {
     pool = heroes.filter((h) => !exclude.has(h.id) && !(isSupport && CORE_ONLY_NAMES.has(h.shortName)))
@@ -479,7 +479,6 @@ export default function QuickCounter() {
             <div className="space-y-4">
               <ResultsView
                 enemy={enemy}
-                enemyPos={enemyPos}
                 slots={Object.entries(slots).map(([pos, hid]) => ({
                   heroId: hid,
                   pos: Number(pos),
@@ -768,12 +767,10 @@ function DraggableHeroCell({
 
 function ResultsView({
   enemy,
-  enemyPos,
   slots,
   byId,
 }: {
   enemy: Hero
-  enemyPos: number
   slots: SlotHero[]
   byId: Record<number, Hero>
 }) {
