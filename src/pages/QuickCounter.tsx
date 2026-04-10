@@ -418,60 +418,63 @@ export default function QuickCounter() {
             </div>
           </div>
 
-          {/* Position slots */}
-          <div className="bg-panel border border-border rounded-xl p-4 space-y-3">
-            <div className="text-sm text-zinc-500">Твоя команда — перетащи или кликни на слот, затем выбери героя</div>
-            <div className="grid grid-cols-5 gap-3">
-              {POSITIONS.map((p) => {
-                const heroId = slots[p.pos]
-                const hero = heroId != null ? byId[heroId] : null
-                const wr = heroId != null ? getWr(heroId) : null
-                const isActive = activeSlot === p.pos && phase === 'picking'
-                return (
-                  <PositionSlot
-                    key={p.pos}
-                    pos={p.pos}
-                    label={p.label}
-                    hero={hero}
-                    winrate={wr?.winrate ?? null}
-                    games={wr?.games ?? null}
-                    isActive={isActive}
-                    disabled={phase === 'results'}
-                    onClick={() => {
-                      if (phase !== 'picking') return
-                      if (hero) {
-                        removeSlot(p.pos)
-                      } else {
-                        setActiveSlot(isActive ? null : p.pos)
-                      }
-                    }}
-                    onDrop={(heroId) => {
-                      if (phase !== 'picking') return
-                      assignSlot(p.pos, heroId)
-                    }}
+          {/* Two-column layout: hero grid LEFT, position slots RIGHT */}
+          {phase === 'picking' && (
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_240px] gap-4">
+              {/* Left: Hero picker */}
+              <div>
+                {!loadingMatchups && matchups && (
+                  <HeroPicker
+                    grouped={grouped}
+                    onPick={handleHeroPick}
+                    disabledIds={usedIds}
+                    matchups={matchups}
+                    enemyId={enemyId!}
                   />
-                )
-              })}
-            </div>
-            {phase === 'picking' && filledCount > 0 && filledCount < 5 && (
-              <button
-                onClick={finishRound}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 rounded-lg py-2.5 font-semibold text-sm"
-              >
-                Готово ({filledCount}/5)
-              </button>
-            )}
-          </div>
+                )}
+              </div>
 
-          {/* Hero picker (during picking) */}
-          {phase === 'picking' && !loadingMatchups && matchups && (
-            <HeroPicker
-              grouped={grouped}
-              onPick={handleHeroPick}
-              disabledIds={usedIds}
-              matchups={matchups}
-              enemyId={enemyId!}
-            />
+              {/* Right: Vertical position slots */}
+              <div className="bg-panel border border-border rounded-xl p-4 space-y-3 h-fit">
+                <div className="text-xs text-zinc-500">Твоя команда</div>
+                <div className="space-y-2">
+                  {POSITIONS.map((p) => {
+                    const heroId = slots[p.pos]
+                    const hero = heroId != null ? byId[heroId] : null
+                    const wr = heroId != null ? getWr(heroId) : null
+                    const isActive = activeSlot === p.pos
+                    return (
+                      <PositionSlot
+                        key={p.pos}
+                        pos={p.pos}
+                        label={p.label}
+                        hero={hero}
+                        winrate={wr?.winrate ?? null}
+                        games={wr?.games ?? null}
+                        isActive={isActive}
+                        disabled={false}
+                        onClick={() => {
+                          if (hero) {
+                            removeSlot(p.pos)
+                          } else {
+                            setActiveSlot(isActive ? null : p.pos)
+                          }
+                        }}
+                        onDrop={(heroId) => assignSlot(p.pos, heroId)}
+                      />
+                    )
+                  })}
+                </div>
+                {filledCount > 0 && filledCount < 5 && (
+                  <button
+                    onClick={finishRound}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 rounded-lg py-2.5 font-semibold text-sm"
+                  >
+                    Готово ({filledCount}/5)
+                  </button>
+                )}
+              </div>
+            </div>
           )}
 
           {/* Results */}
@@ -613,25 +616,25 @@ function PositionSlot({
       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
       onDrop={handleDrop}
       className={clsx(
-        'text-center rounded-lg p-2 transition cursor-pointer space-y-1',
+        'flex items-center gap-2 rounded-lg px-3 py-2 transition cursor-pointer',
         hero ? 'bg-bg/50' : 'border-2 border-dashed border-zinc-700 bg-bg/20',
         isActive && 'ring-2 ring-amber-400 bg-amber-900/20',
-        isOver && 'ring-2 ring-emerald-400 bg-emerald-900/20 scale-[1.03]',
+        isOver && 'ring-2 ring-emerald-400 bg-emerald-900/20 scale-[1.02]',
         disabled && 'pointer-events-none',
       )}
     >
-      <div className="text-[10px] text-zinc-500 uppercase tracking-wider">
+      <div className="text-[10px] text-zinc-500 uppercase tracking-wider w-16 shrink-0">
         {pos}. {label}
       </div>
       {hero ? (
         <>
-          <div className="w-14 mx-auto">
+          <div className="w-10 shrink-0">
             <HeroIcon hero={hero} variant="portrait" />
           </div>
-          <div className="text-[10px] truncate">{hero.localized_name}</div>
+          <div className="text-xs truncate flex-1">{hero.localized_name}</div>
           {winrate != null && (
             <div
-              className={`text-xs font-bold ${
+              className={`text-xs font-bold shrink-0 ${
                 winrate >= 0.52
                   ? 'text-emerald-400'
                   : winrate <= 0.48
@@ -643,11 +646,11 @@ function PositionSlot({
             </div>
           )}
           {games != null && games > 0 && (
-            <div className="text-[9px] text-zinc-600">{games.toLocaleString()} игр</div>
+            <div className="text-[9px] text-zinc-600 shrink-0">{games.toLocaleString()}</div>
           )}
         </>
       ) : (
-        <div className="aspect-[71/94] flex items-center justify-center">
+        <div className="h-10 flex items-center flex-1">
           <span className="text-zinc-600 text-xs">пусто</span>
         </div>
       )}
