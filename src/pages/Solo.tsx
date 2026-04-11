@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useDraftStore } from '../store/draftStore'
+import { useHeroPoolStore } from '../store/heroPoolStore'
 import { useHeroes } from '../hooks/useHeroes'
 import { CM_SEQUENCE } from '../types'
 import { useTimer } from '../hooks/useTimer'
@@ -8,6 +9,7 @@ import { useHints } from '../hooks/useHints'
 import { DraftBoard } from '../components/DraftBoard'
 import { DraftStatusBar } from '../components/DraftStatusBar'
 import { HeroPool } from '../components/HeroPool'
+import { HeroPoolManager } from '../components/HeroPoolManager'
 import { LaneAssignBoard } from '../components/LaneAssign'
 import { Verdict } from '../components/Verdict'
 
@@ -63,6 +65,10 @@ export default function Solo() {
   // Hint system — in solo mode use current action's side
   const { hints, hintActive, toggleHint, isBan, hintLoading } = useHints(draft, action?.side ?? null)
 
+  // Hero pool
+  const heroPool = useHeroPoolStore((s) => s.pool)
+  const [showPoolManager, setShowPoolManager] = useState(false)
+
   const { timer, startTimer, resetTimer } = useTimer(
     draft.step,
     draft.phase,
@@ -116,6 +122,13 @@ export default function Solo() {
             {hintLoading ? '...' : hintActive ? '💡 ON' : '💡'}
           </button>
           <button
+            onClick={() => setShowPoolManager(true)}
+            className="text-xs bg-zinc-700 hover:bg-zinc-600 rounded px-3 py-1.5"
+            title="Настроить пул героев по позициям"
+          >
+            🎯 пул
+          </button>
+          <button
             onClick={() => {
               if (!timerEnabled) {
                 setTimerEnabled(true)
@@ -158,6 +171,7 @@ export default function Solo() {
               onPick={pickHero}
               hints={hintActive ? hints : null}
               isBan={isBan}
+              heroPool={heroPool}
             />
             <DraftBoard draft={draft} byId={byId} />
           </div>
@@ -199,6 +213,15 @@ export default function Solo() {
             ← вернуться к распределению
           </button>
         </div>
+      )}
+
+      {/* Hero pool manager modal */}
+      {showPoolManager && (
+        <HeroPoolManager
+          heroes={heroes}
+          byId={byId}
+          onClose={() => setShowPoolManager(false)}
+        />
       )}
     </div>
   )

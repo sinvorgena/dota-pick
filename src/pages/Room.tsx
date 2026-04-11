@@ -1,6 +1,7 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { useDraftStore } from '../store/draftStore'
+import { useHeroPoolStore } from '../store/heroPoolStore'
 import { useRoom } from '../hooks/useRoom'
 import { useHeroes } from '../hooks/useHeroes'
 import { CM_SEQUENCE, type Side } from '../types'
@@ -9,6 +10,7 @@ import { useHints } from '../hooks/useHints'
 import { DraftBoard } from '../components/DraftBoard'
 import { DraftStatusBar } from '../components/DraftStatusBar'
 import { HeroPool } from '../components/HeroPool'
+import { HeroPoolManager } from '../components/HeroPoolManager'
 import { LaneAssignBoard } from '../components/LaneAssign'
 import { Verdict } from '../components/Verdict'
 
@@ -100,6 +102,10 @@ export default function Room() {
   // Hint system
   const { hints, hintActive, toggleHint, isBan, hintLoading } = useHints(draft, mySide)
 
+  // Hero pool
+  const heroPool = useHeroPoolStore((s) => s.pool)
+  const [showPoolManager, setShowPoolManager] = useState(false)
+
   if (isLoading || !heroes) {
     return <div className="p-6 text-zinc-400">Загрузка героев...</div>
   }
@@ -166,6 +172,13 @@ export default function Room() {
             title="Подсказка: показывает рекомендуемые пики/баны"
           >
             {hintLoading ? '...' : hintActive ? '💡 подсказка ON' : '💡 подсказка'}
+          </button>
+          <button
+            onClick={() => setShowPoolManager(true)}
+            className="text-xs bg-zinc-700 hover:bg-zinc-600 rounded px-3 py-1.5"
+            title="Настроить пул героев по позициям"
+          >
+            🎯 пул
           </button>
           <button
             onClick={copy}
@@ -246,6 +259,7 @@ export default function Room() {
                   onPick={pickHero}
                   hints={hintActive ? hints : null}
                   isBan={isBan}
+                  heroPool={heroPool}
                 />
               )}
             </div>
@@ -289,6 +303,15 @@ export default function Room() {
             ← вернуться к распределению
           </button>
         </div>
+      )}
+
+      {/* Hero pool manager modal */}
+      {showPoolManager && (
+        <HeroPoolManager
+          heroes={heroes}
+          byId={byId}
+          onClose={() => setShowPoolManager(false)}
+        />
       )}
     </div>
   )

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { DraftState, Hero } from '../types'
 import { HeroIcon } from './HeroIcon'
 import type { HintMap } from '../hooks/useHints'
+import type { PositionPool } from '../store/heroPoolStore'
 
 interface Props {
   heroes: Hero[]
@@ -12,6 +13,8 @@ interface Props {
   hints?: HintMap | null
   /** Whether current action is a ban (affects badge color logic) */
   isBan?: boolean
+  /** Hero pool: preferred heroes per position. Shows position markers on heroes. */
+  heroPool?: PositionPool | null
 }
 
 const ATTR_ICON =
@@ -29,7 +32,7 @@ const ATTR_GROUPS: {
   { key: 'all', label: 'Universal', color: 'text-amber-300', icon: `${ATTR_ICON}/hero_universal.png` },
 ]
 
-export function HeroPool({ heroes, draft, canAct, onPick, hints, isBan }: Props) {
+export function HeroPool({ heroes, draft, canAct, onPick, hints, isBan, heroPool }: Props) {
   const [q, setQ] = useState('')
 
   // Global keystroke search — like the Dota client.
@@ -83,6 +86,19 @@ export function HeroPool({ heroes, draft, canAct, onPick, hints, isBan }: Props)
     for (const h of heroes) map[h.primary_attr]?.push(h)
     return map
   }, [heroes])
+
+  // Build a map: heroId -> list of positions this hero is preferred for
+  const poolPositions = useMemo(() => {
+    if (!heroPool) return null
+    const map = new Map<number, number[]>()
+    for (const [pos, ids] of Object.entries(heroPool)) {
+      for (const id of ids) {
+        if (!map.has(id)) map.set(id, [])
+        map.get(id)!.push(Number(pos))
+      }
+    }
+    return map
+  }, [heroPool])
 
   const ql = q.trim().toLowerCase()
   const matches = (h: Hero) =>
@@ -147,21 +163,45 @@ export function HeroPool({ heroes, draft, canAct, onPick, hints, isBan }: Props)
                         }
                       }
                     }
+                    // Pool positions for this hero
+                    const positions = poolPositions?.get(h.id)
+                    const inPool = !!positions && positions.length > 0 && !isTaken
                     return (
-                      <HeroIcon
-                        key={h.id}
-                        hero={h}
-                        variant="portrait"
-                        dim={dim}
-                        selectable={canAct && !isTaken && isMatch}
-                        onClick={
-                          canAct && !isTaken && isMatch
-                            ? () => handlePick(h.id)
-                            : undefined
-                        }
-                        title={h.localized_name}
-                        badge={badge}
-                      />
+                      <div key={h.id} className="relative">
+                        <div
+                          className={
+                            inPool
+                              ? 'ring-2 ring-amber-400/70 rounded-sm'
+                              : undefined
+                          }
+                        >
+                          <HeroIcon
+                            hero={h}
+                            variant="portrait"
+                            dim={dim}
+                            selectable={canAct && !isTaken && isMatch}
+                            onClick={
+                              canAct && !isTaken && isMatch
+                                ? () => handlePick(h.id)
+                                : undefined
+                            }
+                            title={h.localized_name}
+                            badge={badge}
+                          />
+                        </div>
+                        {inPool && (
+                          <div className="absolute bottom-0 left-0 z-20 flex gap-px">
+                            {positions.map((p) => (
+                              <span
+                                key={p}
+                                className="bg-amber-500 text-black text-[8px] font-bold leading-none px-[3px] py-[1px] rounded-tr-sm first:rounded-bl-sm"
+                              >
+                                {p}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     )
                   })}
                 </div>
