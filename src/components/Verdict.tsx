@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { Hero } from '../types'
+import type { Hero, Side } from '../types'
 import { laneLabel } from '../lib/matchup'
 import { HeroIcon } from './HeroIcon'
 import { useDraftStore } from '../store/draftStore'
@@ -8,10 +8,14 @@ import {
   computeRealLaneResults,
   computeCounterpicks,
   computeOverallWinProbability,
+  computeHeroMatchupSummaries,
+  difficultyColor,
+  difficultyLabel,
   realVerdictColor,
   realVerdictLabel,
   type RealLaneResult,
   type HeroCounterpickInfo,
+  type HeroMatchupSummary,
   type WinProbability,
 } from '../lib/realMatchup'
 
@@ -43,12 +47,26 @@ export function Verdict({ byId }: { byId: Record<number, Hero> }) {
   )
 
   const winProb = useMemo(
-    () => computeOverallWinProbability(draft.picks, matchups),
-    [draft.picks, matchups],
+    () => computeOverallWinProbability(draft.picks, draft.assignments, matchups),
+    [draft.picks, draft.assignments, matchups],
+  )
+
+  const heroSummaries = useMemo(
+    () =>
+      computeHeroMatchupSummaries(
+        byId,
+        draft.picks,
+        draft.assignments,
+        matchups,
+      ),
+    [byId, draft.picks, draft.assignments, matchups],
   )
 
   const radiantCPs = counterpicks.filter((c) => c.side === 'radiant')
   const direCPs = counterpicks.filter((c) => c.side === 'dire')
+
+  const radiantSummaries = heroSummaries.filter((s) => s.side === 'radiant')
+  const direSummaries = heroSummaries.filter((s) => s.side === 'dire')
 
   // Pick/ban effectiveness
   const pickBanStats = useMemo(() => {
@@ -109,6 +127,14 @@ export function Verdict({ byId }: { byId: Record<number, Hero> }) {
       {/* Overall win probability */}
       <WinProbabilityBar winProb={winProb} isLoading={isLoading} />
 
+      {/* Per-hero difficulty summary */}
+      {heroSummaries.length > 0 && (
+        <HeroSummaryBlock
+          radiant={radiantSummaries}
+          dire={direSummaries}
+        />
+      )}
+
       {/* Pick/ban effectiveness */}
       {pickBanStats && <PickBanStats stats={pickBanStats} />}
 
@@ -165,6 +191,139 @@ export function Verdict({ byId }: { byId: Record<number, Hero> }) {
             ))}
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Hero difficulty summary — simplified per-hero overview
+// ---------------------------------------------------------------------------
+
+function HeroSummaryBlock({
+  radiant,
+  dire,
+}: {
+  radiant: HeroMatchupSummary[]
+  dire: HeroMatchupSummary[]
+}) {
+  const sortByDifficulty = (a: HeroMatchupSummary, b: HeroMatchupSummary) => {
+    // Best games first (higher WR first), then by position importance
+    const wrA = a.avgWinrate ?? 0.5
+    const wrB = b.avgWinrate ?? 0.5
+    return wrB - wrA
+  }
+
+  return (
+    <div className="bg-panel border border-border rounded-lg p-4 space-y-3">
+      <div>
+        <h2 className="text-xl font-semibold">Итог по героям</h2>
+        <p className="text-xs text-zinc-500 mt-1">
+          Для каждого героя усреднённый WR против всей вражеской команды
+          (веса: pos1×1.25, pos2×1.15, pos3×1.05, pos4×0.65, pos5×0.55)
+          и список ключевых матчапов.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <SummaryColumn
+          title="Radiant"
+          side="radiant"
+          summaries={[...radiant].sort(sortByDifficulty)}
+        />
+        <SummaryColumn
+          title="Dire"
+          side="dire"
+          summaries={[...dire].sort(sortByDifficulty)}
+        />
+      </div>
+    </div>
+  )
+}
+
+function SummaryColumn({
+  title,
+  side,
+  summaries,
+}: {
+  title: string
+  side: Side
+  summaries: HeroMatchupSummary[]
+}) {
+  const titleColor =
+    side === 'radiant' ? 'text-emerald-400' : 'text-rose-400'
+  return (
+    <div className="space-y-2">
+      <h3 className={`text-sm font-semibold ${titleColor}`}>{title}</h3>
+      <div className="space-y-1.5">
+        {summaries.map((s) => (
+          <HeroSummaryRow key={s.hero.id} summary={s} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function HeroSummaryRow({ summary }: { summary: HeroMatchupSummary }) {
+  const wr = summary.avgWinrate
+  const wrPct = wr !== null ? (wr * 100).toFixed(1) : '—'
+  const delta = wr !== null ? (wr - 0.5) * 100 : 0
+  const deltaStr =
+    wr !== null ? `${delta >= 0 ? '+' : ''}${delta.toFixed(1)} pp` : '—'
+
+  return (
+    <div className="flex items-start gap-2 bg-bg/60 rounded px-2 py-1.5">
+      <div className="w-10 shrink-0 pt-0.5">
+        <HeroIcon hero={summary.hero} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs font-semibold text-zinc-200 truncate">
+            {summary.hero.localized_name}
+          </span>
+          {summary.heroPos != null && (
+            <span className="text-[9px] bg-zinc-700 rounded px-1 py-0.5 text-zinc-300 whitespace-nowrap">
+              pos {summary.heroPos}
+            </span>
+          )}
+          <span
+            className={`text-[11px] font-semibold ml-auto ${difficultyColor[summary.difficulty]}`}
+          >
+            {difficultyLabel[summary.difficulty]}
+          </span>
+        </div>
+        <div className="text-[11px] text-zinc-400 mt-0.5 leading-snug">
+          {summary.description}
+        </div>
+        {wr !== null && (
+          <div className="flex items-center gap-2 mt-1 text-[10px] text-zinc-500">
+            <span>
+              WR{' '}
+              <span
+                className={
+                  delta >= 2.5
+                    ? 'text-emerald-400'
+                    : delta <= -2.5
+                      ? 'text-rose-400'
+                      : 'text-zinc-300'
+                }
+              >
+                {wrPct}%
+              </span>{' '}
+              ({deltaStr})
+            </span>
+            {summary.crushes.length > 0 && (
+              <span className="text-emerald-500/80">
+                контрит {summary.crushes.length}
+              </span>
+            )}
+            {summary.crushedBy.length > 0 && (
+              <span className="text-rose-500/80">
+                уязвим к {summary.crushedBy.length}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -320,6 +479,10 @@ function WinProbabilityBar({
   else
     summary = `Преимущество ${winProb.radiantWinProb > 0.5 ? 'Radiant' : 'Dire'}`
 
+  const rawPct = (winProb.rawRadiantWinProb * 100).toFixed(1)
+  const weightDelta =
+    (winProb.radiantWinProb - winProb.rawRadiantWinProb) * 100
+
   return (
     <div className="bg-panel border border-border rounded-lg p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -358,6 +521,16 @@ function WinProbabilityBar({
           {summary}
         </span>
         <span className="text-rose-400">Dire</span>
+      </div>
+
+      <div className="text-[10px] text-zinc-600 leading-snug">
+        Взвешено по позициям (контр на core важнее, чем на саппорта). Без весов
+        WR Radiant = {rawPct}%
+        {Math.abs(weightDelta) >= 0.1 && (
+          <> · сдвиг от весов {weightDelta >= 0 ? '+' : ''}
+            {weightDelta.toFixed(1)} pp</>
+        )}
+        .
       </div>
     </div>
   )
