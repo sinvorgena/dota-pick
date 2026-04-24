@@ -9,6 +9,7 @@ import Sandbox from './pages/Sandbox'
 import Solo from './pages/Solo'
 import QuickCounter from './pages/QuickCounter'
 import MatchAnalysis from './pages/MatchAnalysis'
+import Friends from './pages/Friends'
 
 const qc = new QueryClient()
 
@@ -23,6 +24,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/solo" element={<Solo />} />
           <Route path="/quick-counter" element={<QuickCounter />} />
           <Route path="/match" element={<MatchAnalysis />} />
+          <Route path="/friends" element={<Friends />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

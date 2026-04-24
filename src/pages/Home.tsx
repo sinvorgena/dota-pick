@@ -4,6 +4,50 @@ import { customAlphabet } from 'nanoid'
 
 const makeRoomId = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 8)
 
+interface MenuCardProps {
+  title: string
+  description: string
+  onClick: () => void
+  accent?: 'emerald' | 'sky' | 'zinc'
+}
+
+function MenuCard({ title, description, onClick, accent = 'zinc' }: MenuCardProps) {
+  const accentRing =
+    accent === 'emerald'
+      ? 'hover:border-emerald-500/60 hover:bg-emerald-500/5'
+      : accent === 'sky'
+        ? 'hover:border-sky-500/60 hover:bg-sky-500/5'
+        : 'hover:border-zinc-500 hover:bg-zinc-800/40'
+  return (
+    <button
+      onClick={onClick}
+      className={`group w-full text-left bg-bg border border-border rounded-xl px-4 py-3 transition ${accentRing}`}
+    >
+      <div className="font-semibold text-zinc-100 group-hover:text-white">
+        {title}
+      </div>
+      <div className="text-xs text-zinc-400 mt-0.5">{description}</div>
+    </button>
+  )
+}
+
+function Section({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="text-[11px] text-zinc-500 uppercase tracking-wider font-semibold">
+        {label}
+      </div>
+      <div className="space-y-2">{children}</div>
+    </div>
+  )
+}
+
 export default function Home() {
   const navigate = useNavigate()
   const [joinId, setJoinId] = useState('')
@@ -21,7 +65,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
-      <div className="bg-panel border border-border rounded-2xl p-8 w-full max-w-md space-y-6">
+      <div className="bg-panel border border-border rounded-2xl p-8 w-full max-w-xl space-y-6">
         <div>
           <h1 className="text-3xl font-bold mb-1">Dota 2 · Captains Draft</h1>
           <p className="text-sm text-zinc-400">
@@ -29,14 +73,43 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Multiplayer */}
-        <div className="space-y-2">
-          <div className="text-xs text-zinc-500 uppercase tracking-wider">
-            Мультиплеер
-          </div>
+        <Section label="Анализ">
+          <MenuCard
+            title="Анализ матча"
+            description="Загрузи матч по ID или ссылке — разбор драфта и ролей"
+            onClick={() => navigate('/match')}
+            accent="sky"
+          />
+          <MenuCard
+            title="Матчи друзей"
+            description="Календарь игр нескольких игроков — выбери матч для анализа"
+            onClick={() => navigate('/friends')}
+            accent="sky"
+          />
+          <MenuCard
+            title="Sandbox"
+            description="Тестовые драфты и сценарии"
+            onClick={() => navigate('/sandbox')}
+          />
+        </Section>
+
+        <Section label="Одиночные режимы">
+          <MenuCard
+            title="Solo Draft"
+            description="Полный капитанский драфт — пикай за обе стороны"
+            onClick={() => navigate('/solo')}
+          />
+          <MenuCard
+            title="Quick Counterpick"
+            description="Случайный герой — выбери контрпик, проверь винрейт"
+            onClick={() => navigate('/quick-counter')}
+          />
+        </Section>
+
+        <Section label="Мультиплеер">
           <button
             onClick={create}
-            className="w-full bg-emerald-600 hover:bg-emerald-500 transition rounded-lg py-3 font-semibold"
+            className="w-full bg-emerald-600 hover:bg-emerald-500 transition rounded-xl py-3 font-semibold"
           >
             Создать комнату
           </button>
@@ -55,51 +128,7 @@ export default function Home() {
               Войти
             </button>
           </div>
-        </div>
-
-        {/* Solo modes */}
-        <div className="space-y-2 border-t border-border pt-4">
-          <div className="text-xs text-zinc-500 uppercase tracking-wider">
-            Одиночные режимы
-          </div>
-          <button
-            onClick={() => navigate('/solo')}
-            className="w-full bg-zinc-700 hover:bg-zinc-600 transition rounded-lg py-3 font-semibold text-left px-4"
-          >
-            <div>Solo Draft</div>
-            <div className="text-xs text-zinc-400 font-normal">
-              Полный капитанский драфт — пикай за обе стороны
-            </div>
-          </button>
-          <button
-            onClick={() => navigate('/quick-counter')}
-            className="w-full bg-zinc-700 hover:bg-zinc-600 transition rounded-lg py-3 font-semibold text-left px-4"
-          >
-            <div>Quick Counterpick</div>
-            <div className="text-xs text-zinc-400 font-normal">
-              Случайный герой — выбери контрпик, проверь винрейт
-            </div>
-          </button>
-        </div>
-
-        {/* Tools */}
-        <div className="space-y-2 border-t border-border pt-4">
-          <div className="text-xs text-zinc-500 uppercase tracking-wider">
-            Инструменты
-          </div>
-          <button
-            onClick={() => navigate('/match')}
-            className="w-full text-sm text-zinc-400 hover:text-zinc-200 text-left py-2"
-          >
-            Анализ матча · загрузи матч по ID и разбери драфт →
-          </button>
-          <button
-            onClick={() => navigate('/sandbox')}
-            className="w-full text-sm text-zinc-400 hover:text-zinc-200 text-left py-2"
-          >
-            Sandbox · тестовые драфты →
-          </button>
-        </div>
+        </Section>
       </div>
     </div>
   )

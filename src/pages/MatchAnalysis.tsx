@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import ky from 'ky'
 import { useHeroes } from '../hooks/useHeroes'
 import { useDraftStore } from '../store/draftStore'
@@ -113,21 +113,15 @@ export default function MatchAnalysis() {
   const navigate = useNavigate()
   const { byId, isLoading: heroesLoading } = useHeroes()
   const loadDraft = useDraftStore((s) => s.loadDraft)
+  const [searchParams] = useSearchParams()
 
   const [matchInput, setMatchInput] = useState('')
   const [match, setMatch] = useState<MatchData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const autoFetchedRef = useRef<string | null>(null)
 
-  const fetchMatch = async () => {
-    const raw = matchInput.trim()
-    // Extract match ID from URL or raw number
-    const idMatch = raw.match(/(\d{8,12})/)
-    if (!idMatch) {
-      setError('Введи ID матча или ссылку на OpenDota/Dotabuff')
-      return
-    }
-    const matchId = idMatch[1]
+  const fetchMatchById = async (matchId: string) => {
     setLoading(true)
     setError(null)
     setMatch(null)
@@ -142,6 +136,26 @@ export default function MatchAnalysis() {
       setLoading(false)
     }
   }
+
+  const fetchMatch = async () => {
+    const raw = matchInput.trim()
+    const idMatch = raw.match(/(\d{8,12})/)
+    if (!idMatch) {
+      setError('Введи ID матча или ссылку на OpenDota/Dotabuff')
+      return
+    }
+    await fetchMatchById(idMatch[1])
+  }
+
+  useEffect(() => {
+    const id = searchParams.get('id')
+    if (!id) return
+    if (!/^\d{8,12}$/.test(id)) return
+    if (autoFetchedRef.current === id) return
+    autoFetchedRef.current = id
+    setMatchInput(id)
+    void fetchMatchById(id)
+  }, [searchParams])
 
   const loadIntoDraft = () => {
     if (!match) return
