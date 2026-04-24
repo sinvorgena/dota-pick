@@ -64,10 +64,10 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <div className="bg-panel border border-border rounded-2xl p-8 w-full max-w-xl space-y-6">
+    <div className="min-h-screen flex items-center justify-center p-3 sm:p-6">
+      <div className="bg-panel border border-border rounded-2xl p-4 sm:p-8 w-full max-w-xl space-y-5 sm:space-y-6">
         <div>
-          <h1 className="text-3xl font-bold mb-1">Dota 2 · Captains Draft</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-1">Dota 2 · Captains Draft</h1>
           <p className="text-sm text-zinc-400">
             Драфт, анализ и тренировка контрпиков.
           </p>

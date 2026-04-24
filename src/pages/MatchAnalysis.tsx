@@ -207,19 +207,19 @@ export default function MatchAnalysis() {
   const direPlayers = match?.players.filter((p) => p.player_slot >= 128) ?? []
 
   return (
-    <div className="min-h-screen p-4 max-w-4xl mx-auto space-y-4">
-      <header className="flex items-center gap-3 bg-panel border border-border rounded-xl px-4 py-3">
+    <div className="min-h-screen p-2 sm:p-4 max-w-4xl mx-auto space-y-3 sm:space-y-4">
+      <header className="flex items-center gap-3 bg-panel border border-border rounded-xl px-3 sm:px-4 py-2.5 sm:py-3">
         <Link
           to="/"
           className="text-xs bg-zinc-800 hover:bg-zinc-700 rounded px-3 py-1.5"
         >
           ← на главную
         </Link>
-        <div className="font-semibold">Анализ матча</div>
+        <div className="font-semibold text-sm sm:text-base">Анализ матча</div>
       </header>
 
-      <div className="bg-panel border border-border rounded-xl p-6 space-y-4">
-        <div className="text-sm text-zinc-400">
+      <div className="bg-panel border border-border rounded-xl p-3 sm:p-6 space-y-3 sm:space-y-4">
+        <div className="text-xs sm:text-sm text-zinc-400">
           Введи ID матча или ссылку на OpenDota/Dotabuff
         </div>
         <div className="flex gap-2">
@@ -228,14 +228,14 @@ export default function MatchAnalysis() {
             onChange={(e) => setMatchInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && fetchMatch()}
             placeholder="Match ID или ссылка"
-            className="flex-1 bg-bg border border-border rounded-lg px-3 py-2 outline-none focus:border-zinc-500"
+            className="flex-1 min-w-0 bg-bg border border-border rounded-lg px-3 py-2 text-sm sm:text-base outline-none focus:border-zinc-500"
           />
           <button
             onClick={fetchMatch}
             disabled={loading}
-            className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-lg px-6 py-2 font-semibold"
+            className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-lg px-4 sm:px-6 py-2 font-semibold text-sm sm:text-base shrink-0"
           >
-            {loading ? 'Загрузка...' : 'Найти'}
+            {loading ? '...' : 'Найти'}
           </button>
         </div>
         {error && <div className="text-sm text-rose-400">{error}</div>}
@@ -243,14 +243,13 @@ export default function MatchAnalysis() {
 
       {match && (
         <div className="space-y-4">
-          {/* Match summary */}
-          <div className="bg-panel border border-border rounded-xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-lg font-bold">
+          <div className="bg-panel border border-border rounded-xl p-3 sm:p-4 space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-base sm:text-lg font-bold truncate">
                   Match {match.match_id}
                 </div>
-                <div className="text-sm text-zinc-400">
+                <div className="text-xs sm:text-sm text-zinc-400">
                   {formatDuration(match.duration)} ·{' '}
                   {new Date(match.start_time * 1000).toLocaleDateString('ru-RU')}
                   {match.avg_rank_tier && (
@@ -259,28 +258,27 @@ export default function MatchAnalysis() {
                 </div>
               </div>
               <div
-                className={`text-lg font-bold ${
+                className={`text-base sm:text-lg font-bold shrink-0 ${
                   match.radiant_win ? 'text-emerald-400' : 'text-rose-400'
                 }`}
               >
-                {match.radiant_win ? 'Radiant Win' : 'Dire Win'}
+                {match.radiant_win ? 'Radiant' : 'Dire'} W
               </div>
             </div>
 
-            {/* Picks/Bans */}
             {match.picks_bans && match.picks_bans.length > 0 && (
               <div className="space-y-2">
                 <div className="text-xs text-zinc-500 uppercase tracking-wider">
                   Баны
                 </div>
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex gap-1.5 sm:gap-2 flex-wrap">
                   {match.picks_bans
                     .filter((pb) => !pb.is_pick)
                     .map((pb, i) => {
                       const hero = byId[pb.hero_id]
                       if (!hero) return null
                       return (
-                        <div key={i} className="w-12">
+                        <div key={i} className="w-10 sm:w-12">
                           <HeroIcon
                             hero={hero}
                             variant="portrait"
@@ -293,7 +291,6 @@ export default function MatchAnalysis() {
               </div>
             )}
 
-            {/* Team tables */}
             {[
               { label: 'Radiant', players: radiantPlayers, color: 'text-emerald-400' },
               { label: 'Dire', players: direPlayers, color: 'text-rose-400' },
@@ -309,23 +306,26 @@ export default function MatchAnalysis() {
                     return (
                       <div
                         key={p.player_slot}
-                        className="flex items-center gap-3 bg-bg rounded px-3 py-1.5 text-sm"
+                        className="flex items-center gap-2 sm:gap-3 bg-bg rounded px-2 sm:px-3 py-1.5 text-sm"
                       >
                         <div className="w-8 shrink-0">
                           <HeroIcon hero={hero} variant="portrait" />
                         </div>
-                        <span className="w-32 truncate font-medium">
+                        <span className="w-20 sm:w-32 truncate font-medium">
                           {hero.localized_name}
                         </span>
-                        <span className="text-zinc-400">
+                        <span className="text-zinc-400 tabular-nums shrink-0">
                           {p.kills}/{p.deaths}/{p.assists}
                         </span>
-                        <span className="text-zinc-500 text-xs">
+                        <span className="text-zinc-500 text-xs hidden md:inline">
                           GPM {p.gold_per_min} · XPM {p.xp_per_min}
                         </span>
-                        <span className="text-zinc-600 text-xs ml-auto">
+                        <span className="text-zinc-600 text-xs ml-auto hidden lg:inline">
                           HD {(p.hero_damage / 1000).toFixed(1)}k · TD{' '}
                           {(p.tower_damage / 1000).toFixed(1)}k
+                        </span>
+                        <span className="text-zinc-500 text-xs ml-auto md:hidden tabular-nums">
+                          {p.gold_per_min} gpm
                         </span>
                       </div>
                     )

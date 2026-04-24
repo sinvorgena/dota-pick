@@ -9,6 +9,7 @@ import {
   type OpenDotaPlayerMatch,
 } from '../api/playerMatches'
 import {
+  getEffectiveMmr,
   loadSavedPlayers,
   parsePlayerId,
   saveSavedPlayers,
@@ -20,6 +21,8 @@ import type { Hero } from '../types'
 type MatchLimit = 50 | 100 | 200
 
 const LIMIT_OPTIONS: MatchLimit[] = [50, 100, 200]
+
+const MMR_PER_GAME = 25
 
 function isWin(m: OpenDotaPlayerMatch) {
   const isRadiant = m.player_slot < 128
@@ -72,6 +75,17 @@ export default function Friends() {
   const [dateTo, setDateTo] = useState<string>(todayISO())
   const [limit, setLimit] = useState<MatchLimit>(100)
   const [winsOnly, setWinsOnly] = useState(false)
+  const [teamOnly, setTeamOnly] = useState(false)
+
+  const [isNarrow, setIsNarrow] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 640,
+  )
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 639px)')
+    const h = (e: MediaQueryListEvent) => setIsNarrow(e.matches)
+    mql.addEventListener('change', h)
+    return () => mql.removeEventListener('change', h)
+  }, [])
 
   useEffect(() => {
     saveSavedPlayers(players)
@@ -150,7 +164,7 @@ export default function Friends() {
     .map((q, i) => (q.error ? players[i] : null))
     .filter(Boolean) as SavedPlayer[]
 
-  const filtered = useMemo(
+  const baseFiltered = useMemo(
     () =>
       queries.map((q) => {
         const data = q.data ?? []
@@ -161,6 +175,30 @@ export default function Friends() {
         })
       }),
     [queries, fromTs, toTs, winsOnly],
+  )
+
+  const sharedMatchIds = useMemo(() => {
+    const counts = new Map<number, number>()
+    baseFiltered.forEach((matches) => {
+      const seen = new Set<number>()
+      for (const m of matches) seen.add(m.match_id)
+      seen.forEach((id) => counts.set(id, (counts.get(id) ?? 0) + 1))
+    })
+    const shared = new Set<number>()
+    counts.forEach((c, id) => {
+      if (c >= 2) shared.add(id)
+    })
+    return shared
+  }, [baseFiltered])
+
+  const filtered = useMemo(
+    () =>
+      teamOnly
+        ? baseFiltered.map((matches) =>
+            matches.filter((m) => sharedMatchIds.has(m.match_id)),
+          )
+        : baseFiltered,
+    [baseFiltered, teamOnly, sharedMatchIds],
   )
 
   const dayRows = useMemo(() => {
@@ -190,20 +228,6 @@ export default function Friends() {
     })
   }, [filtered, players])
 
-  const sharedMatchIds = useMemo(() => {
-    const counts = new Map<number, number>()
-    filtered.forEach((matches) => {
-      const seen = new Set<number>()
-      for (const m of matches) seen.add(m.match_id)
-      seen.forEach((id) => counts.set(id, (counts.get(id) ?? 0) + 1))
-    })
-    const shared = new Set<number>()
-    counts.forEach((c, id) => {
-      if (c >= 2) shared.add(id)
-    })
-    return shared
-  }, [filtered])
-
   const totalMatches = filtered.reduce((s, a) => s + a.length, 0)
 
   const playerStats = useMemo(
@@ -227,26 +251,82 @@ export default function Friends() {
     [filtered],
   )
 
-  const MMR_PER_GAME = 25
+  // Reconstruct MMR at the end of each day per player from current MMR walking
+  // back through ranked W/L history. Uses the full (pre-filter) match list so
+  // historical reconstruction stays correct when the date window is narrow.
+  const mmrByDayByPlayer = useMemo(() => {
+    const result: Record<
+      string,
+      Record<number, { mmrAtEnd: number; dayDelta: number }>
+    > = {}
+    queries.forEach((q, playerIdx) => {
+      const player = players[playerIdx]
+      if (!player) return
+      const current = getEffectiveMmr(player.accountId, player.mmrEstimate)
+      if (current == null) return
+
+      const rankedAsc = (q.data ?? [])
+        .filter((m) => m.lobby_type === 7)
+        .sort((a, b) => a.start_time - b.start_time)
+      if (rankedAsc.length === 0) return
+
+      const cumDelta: number[] = new Array(rankedAsc.length)
+      let cum = 0
+      for (let i = 0; i < rankedAsc.length; i++) {
+        cum += (isWin(rankedAsc[i]) ? 1 : -1) * MMR_PER_GAME
+        cumDelta[i] = cum
+      }
+      const totalDelta = cumDelta[cumDelta.length - 1]
+
+      const perDay = new Map<
+        number,
+        { lastIdx: number; dayDelta: number }
+      >()
+      for (let i = 0; i < rankedAsc.length; i++) {
+        const d = dayKey(rankedAsc[i].start_time)
+        const matchDelta = (isWin(rankedAsc[i]) ? 1 : -1) * MMR_PER_GAME
+        const entry = perDay.get(d)
+        if (!entry) perDay.set(d, { lastIdx: i, dayDelta: matchDelta })
+        else {
+          entry.lastIdx = i
+          entry.dayDelta += matchDelta
+        }
+      }
+
+      const byDay: Record<number, { mmrAtEnd: number; dayDelta: number }> = {}
+      perDay.forEach(({ lastIdx, dayDelta }, d) => {
+        byDay[d] = {
+          mmrAtEnd: current - (totalDelta - cumDelta[lastIdx]),
+          dayDelta,
+        }
+      })
+      result[player.accountId] = byDay
+    })
+    return result
+  }, [queries, players])
+
+  const dayColW = isNarrow ? '88px' : '160px'
+  const playerColMin = isNarrow ? '140px' : '180px'
+  const gridTemplate = `${dayColW} repeat(${players.length}, minmax(${playerColMin}, 1fr))`
 
   return (
-    <div className="min-h-screen p-4 max-w-[1400px] mx-auto space-y-4">
-      <header className="flex items-center gap-3 bg-panel border border-border rounded-xl px-4 py-3">
+    <div className="min-h-screen p-2 sm:p-4 max-w-[1400px] mx-auto space-y-3 sm:space-y-4">
+      <header className="flex flex-wrap items-center gap-2 sm:gap-3 bg-panel border border-border rounded-xl px-3 sm:px-4 py-2.5 sm:py-3">
         <Link
           to="/"
           className="text-xs bg-zinc-800 hover:bg-zinc-700 rounded px-3 py-1.5"
         >
           ← на главную
         </Link>
-        <div className="font-semibold">Матчи друзей</div>
-        <div className="ml-auto text-xs text-zinc-500">
+        <div className="font-semibold text-sm sm:text-base">Матчи друзей</div>
+        <div className="basis-full sm:basis-auto sm:ml-auto text-xs text-zinc-500">
           {players.length} игроков
           {totalMatches > 0 && ` · ${totalMatches} матчей в окне`}
         </div>
       </header>
 
-      <section className="bg-panel border border-border rounded-xl p-4 space-y-3">
-        <div className="text-sm text-zinc-400">
+      <section className="bg-panel border border-border rounded-xl p-3 sm:p-4 space-y-3">
+        <div className="text-xs sm:text-sm text-zinc-400">
           Добавь игроков по account_id, steamid64 или ссылке
           (Dotabuff / OpenDota / Stratz / Steam profile).
         </div>
@@ -259,11 +339,11 @@ export default function Friends() {
             }}
             onKeyDown={(e) => e.key === 'Enter' && addPlayer()}
             placeholder="account_id или ссылка"
-            className="flex-1 bg-bg border border-border rounded-lg px-3 py-2 outline-none focus:border-zinc-500"
+            className="flex-1 min-w-0 bg-bg border border-border rounded-lg px-3 py-2 text-sm sm:text-base outline-none focus:border-zinc-500"
           />
           <button
             onClick={addPlayer}
-            className="bg-emerald-600 hover:bg-emerald-500 transition rounded-lg px-5 py-2 font-semibold"
+            className="bg-emerald-600 hover:bg-emerald-500 transition rounded-lg px-4 sm:px-5 py-2 font-semibold text-sm sm:text-base shrink-0"
           >
             Добавить
           </button>
@@ -278,13 +358,13 @@ export default function Friends() {
                 key={p.accountId}
                 className="flex items-center gap-2 bg-bg border border-border rounded-full pl-3 pr-1 py-1 text-sm"
               >
-                <span className="font-medium">{p.label}</span>
-                <span className="text-[10px] text-zinc-500">
+                <span className="font-medium truncate max-w-[160px]">{p.label}</span>
+                <span className="text-[10px] text-zinc-500 hidden sm:inline">
                   #{p.accountId}
                 </span>
                 <button
                   onClick={() => removePlayer(p.accountId)}
-                  className="w-5 h-5 rounded-full bg-zinc-800 hover:bg-rose-600/60 text-zinc-400 hover:text-white text-xs"
+                  className="w-5 h-5 rounded-full bg-zinc-800 hover:bg-rose-600/60 text-zinc-400 hover:text-white text-xs shrink-0"
                   title="Удалить"
                 >
                   ×
@@ -296,55 +376,71 @@ export default function Friends() {
       </section>
 
       {players.length > 0 && (
-        <section className="bg-panel border border-border rounded-xl p-4 flex flex-wrap items-end gap-4">
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] text-zinc-500 uppercase tracking-wider">
-              С даты
-            </label>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="bg-bg border border-border rounded-lg px-3 py-1.5 text-sm"
-            />
+        <section className="bg-panel border border-border rounded-xl p-3 sm:p-4 space-y-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1 min-w-[130px]">
+              <label className="text-[11px] text-zinc-500 uppercase tracking-wider">
+                С даты
+              </label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="bg-bg border border-border rounded-lg px-3 py-1.5 text-sm"
+              />
+            </div>
+            <div className="flex flex-col gap-1 min-w-[130px]">
+              <label className="text-[11px] text-zinc-500 uppercase tracking-wider">
+                По дату
+              </label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="bg-bg border border-border rounded-lg px-3 py-1.5 text-sm"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-zinc-500 uppercase tracking-wider">
+                Матчей / игрока
+              </label>
+              <select
+                value={limit}
+                onChange={(e) => setLimit(Number(e.target.value) as MatchLimit)}
+                className="bg-bg border border-border rounded-lg px-3 py-1.5 text-sm"
+              >
+                {LIMIT_OPTIONS.map((l) => (
+                  <option key={l} value={l}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] text-zinc-500 uppercase tracking-wider">
-              По дату
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={winsOnly}
+                onChange={(e) => setWinsOnly(e.target.checked)}
+                className="accent-emerald-500"
+              />
+              Только победы
             </label>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="bg-bg border border-border rounded-lg px-3 py-1.5 text-sm"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] text-zinc-500 uppercase tracking-wider">
-              Матчей на игрока
+            <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={teamOnly}
+                onChange={(e) => setTeamOnly(e.target.checked)}
+                className="accent-sky-500"
+              />
+              Только пати{' '}
+              <span className="text-[11px] text-zinc-500">
+                (матчи с ≥ 2 из списка)
+              </span>
             </label>
-            <select
-              value={limit}
-              onChange={(e) => setLimit(Number(e.target.value) as MatchLimit)}
-              className="bg-bg border border-border rounded-lg px-3 py-1.5 text-sm"
-            >
-              {LIMIT_OPTIONS.map((l) => (
-                <option key={l} value={l}>
-                  {l}
-                </option>
-              ))}
-            </select>
           </div>
-          <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={winsOnly}
-              onChange={(e) => setWinsOnly(e.target.checked)}
-              className="accent-emerald-500"
-            />
-            Только победы
-          </label>
-          <div className="ml-auto flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => {
                 setDateFrom(daysAgoISO(7))
@@ -396,37 +492,25 @@ export default function Friends() {
           В выбранном окне нет матчей. Раздвинь даты или увеличь лимит.
         </div>
       ) : (
-        <section className="bg-panel border border-border rounded-xl">
-          <div
-            className="sticky top-0 z-20 bg-panel border-b border-border rounded-t-xl shadow-lg shadow-black/40"
-          >
-            <div
-              className="grid"
-              style={{
-                gridTemplateColumns: `160px repeat(${players.length}, minmax(180px, 1fr))`,
-              }}
-            >
-              <div className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider">
+        <section className="bg-panel border border-border rounded-xl overflow-auto max-h-[calc(100dvh-1rem)]">
+          <div className="sticky top-0 z-20 bg-panel shadow-lg shadow-black/40">
+            <div className="grid" style={{ gridTemplateColumns: gridTemplate }}>
+              <div className="sticky left-0 z-10 bg-panel px-2 sm:px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider border-b border-r border-border">
                 День
               </div>
               {players.map((p) => (
                 <div
                   key={p.accountId}
-                  className="px-3 py-2 text-sm font-semibold truncate border-l border-border"
+                  className="px-2 sm:px-3 py-2 text-sm font-semibold truncate border-l border-b border-border"
                   title={p.label}
                 >
                   {p.label}
                 </div>
               ))}
             </div>
-            <div
-              className="grid border-t border-border/60"
-              style={{
-                gridTemplateColumns: `160px repeat(${players.length}, minmax(180px, 1fr))`,
-              }}
-            >
-              <div className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-wider">
-                Итог за период
+            <div className="grid" style={{ gridTemplateColumns: gridTemplate }}>
+              <div className="sticky left-0 z-10 bg-panel px-2 sm:px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-wider border-b border-r border-border">
+                Итог
               </div>
               {players.map((p, i) => {
                 const s = playerStats[i]
@@ -434,7 +518,7 @@ export default function Friends() {
                   return (
                     <div
                       key={p.accountId}
-                      className="px-3 py-1.5 border-l border-border text-[11px] text-zinc-600"
+                      className="px-2 sm:px-3 py-1.5 border-l border-b border-border text-[11px] text-zinc-600"
                     />
                   )
                 }
@@ -445,45 +529,86 @@ export default function Friends() {
                     : delta < 0
                       ? 'text-rose-400'
                       : 'text-zinc-500'
-                const mmr = p.mmrEstimate
+                const mmr = getEffectiveMmr(p.accountId, p.mmrEstimate)
+                const hardcoded = mmr != null && mmr !== p.mmrEstimate
                 return (
                   <div
                     key={p.accountId}
-                    className="px-3 py-1.5 border-l border-border text-[11px] flex items-center gap-2"
+                    className="px-2 sm:px-3 py-1.5 border-l border-b border-border text-[11px] flex items-center gap-1.5 sm:gap-2 min-w-0"
                   >
                     <span className={`font-semibold tabular-nums ${deltaColor}`}>
                       {delta > 0 ? `+${delta}` : delta}
                     </span>
-                    <span className="text-zinc-500 tabular-nums">
-                      {s.rankedW}W–{s.rankedL}L ранкед
+                    <span className="text-zinc-500 tabular-nums truncate">
+                      {s.rankedW}W–{s.rankedL}L
                     </span>
-                    <span className="ml-auto text-zinc-400 tabular-nums">
-                      {mmr != null ? `~${mmr}` : '—'}
+                    <span
+                      className="ml-auto text-zinc-300 tabular-nums shrink-0"
+                      title={
+                        hardcoded
+                          ? 'Текущий MMR (задан вручную)'
+                          : 'Оценка OpenDota'
+                      }
+                    >
+                      {mmr != null ? (hardcoded ? `${mmr}` : `~${mmr}`) : '—'}
                     </span>
                   </div>
                 )
               })}
             </div>
           </div>
-          <div className="rounded-b-xl overflow-hidden">
-            {dayRows.map(({ day, perPlayer }) => (
+          {dayRows.map(({ day, perPlayer }, rowIdx) => {
+            const isLast = rowIdx === dayRows.length - 1
+            return (
               <div
                 key={day}
-                className="grid border-b border-border last:border-b-0"
-                style={{
-                  gridTemplateColumns: `160px repeat(${players.length}, minmax(180px, 1fr))`,
-                }}
+                className={clsx(
+                  'grid',
+                  !isLast && 'border-b border-border',
+                )}
+                style={{ gridTemplateColumns: gridTemplate }}
               >
-                <div className="px-3 py-3 text-sm text-zinc-300 border-r border-border bg-bg/40 flex items-start">
+                <div
+                  className={clsx(
+                    'sticky left-0 z-[5] bg-panel px-2 sm:px-3 py-3 text-[11px] sm:text-sm text-zinc-300 border-r border-border flex items-start',
+                    isLast && 'rounded-bl-xl',
+                  )}
+                >
                   {formatDay(day)}
                 </div>
-                {players.map((p) => {
+                {players.map((p, colIdx) => {
                   const matches = perPlayer.get(p.accountId) ?? []
+                  const isLastCol = colIdx === players.length - 1
+                  const mmrInfo = mmrByDayByPlayer[p.accountId]?.[day]
                   return (
                     <div
                       key={p.accountId}
-                      className="px-2 py-2 border-l border-border space-y-1.5 min-h-[60px]"
+                      className={clsx(
+                        'px-1.5 sm:px-2 py-2 border-l border-border space-y-1.5 min-h-[60px] min-w-0',
+                        isLast && isLastCol && 'rounded-br-xl',
+                      )}
                     >
+                      {mmrInfo && (
+                        <div className="flex items-center gap-1.5 text-[10px] px-0.5 pb-0.5 border-b border-border/60">
+                          <span
+                            className={clsx(
+                              'font-semibold tabular-nums',
+                              mmrInfo.dayDelta > 0
+                                ? 'text-emerald-400'
+                                : mmrInfo.dayDelta < 0
+                                  ? 'text-rose-400'
+                                  : 'text-zinc-500',
+                            )}
+                          >
+                            {mmrInfo.dayDelta > 0
+                              ? `+${mmrInfo.dayDelta}`
+                              : mmrInfo.dayDelta}
+                          </span>
+                          <span className="text-zinc-400 tabular-nums ml-auto">
+                            → {mmrInfo.mmrAtEnd}
+                          </span>
+                        </div>
+                      )}
                       {matches.length === 0 ? (
                         <div className="text-[11px] text-zinc-600 italic">—</div>
                       ) : (
@@ -503,8 +628,8 @@ export default function Friends() {
                   )
                 })}
               </div>
-            ))}
-          </div>
+            )
+          })}
         </section>
       )}
     </div>

@@ -52,6 +52,26 @@ export interface SavedPlayer {
 
 const LS_KEY = 'dp:friends:players'
 
+// Legend 3 ≈ 3400 MMR (rank_tier 53, widely cited community conversion).
+// OpenDota's mmr_estimate is unreliable at Titan+; for the known squad we
+// hardcode the real current MMR so the summary stays meaningful.
+export const HARDCODED_MMR: Record<string, number> = {
+  '314933827': 5970,
+  '117905733': 6600,
+  '471065417': 7500,
+  '1532997110': 6500,
+  '223168818': 3400,
+}
+
+export function getEffectiveMmr(
+  accountId: string,
+  fallback: number | null | undefined,
+): number | null {
+  const hard = HARDCODED_MMR[accountId]
+  if (typeof hard === 'number') return hard
+  return fallback ?? null
+}
+
 const DEFAULT_PLAYERS: SavedPlayer[] = [
   { accountId: '314933827', label: 'scion' },
   { accountId: '117905733', label: 'hope' },
