@@ -77,6 +77,34 @@ export default function Friends() {
     saveSavedPlayers(players)
   }, [players])
 
+  const hydratePlayerProfile = async (id: string) => {
+    try {
+      const profile = await fetchPlayerProfile(id)
+      const name = profile.profile?.personaname ?? undefined
+      const mmr = profile.mmr_estimate?.estimate ?? null
+      setPlayers((prev) =>
+        prev.map((p) =>
+          p.accountId === id
+            ? {
+                ...p,
+                label: name ?? p.label,
+                mmrEstimate: mmr,
+              }
+            : p,
+        ),
+      )
+    } catch {
+      /* leave fallback label */
+    }
+  }
+
+  useEffect(() => {
+    for (const p of players) {
+      if (p.mmrEstimate === undefined) void hydratePlayerProfile(p.accountId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const addPlayer = async () => {
     const id = parsePlayerId(input)
     if (!id) {
@@ -92,19 +120,7 @@ export default function Friends() {
     setInputError(null)
     setPlayers((prev) => [...prev, { accountId: id, label: `id ${id}` }])
     setInput('')
-    try {
-      const profile = await fetchPlayerProfile(id)
-      const name = profile.profile?.personaname
-      if (name) {
-        setPlayers((prev) =>
-          prev.map((p) =>
-            p.accountId === id ? { ...p, label: name } : p,
-          ),
-        )
-      }
-    } catch {
-      /* leave fallback label */
-    }
+    await hydratePlayerProfile(id)
   }
 
   const removePlayer = (accountId: string) => {
@@ -189,6 +205,29 @@ export default function Friends() {
   }, [filtered])
 
   const totalMatches = filtered.reduce((s, a) => s + a.length, 0)
+
+  const playerStats = useMemo(
+    () =>
+      filtered.map((matches) => {
+        let rankedW = 0
+        let rankedL = 0
+        let totalW = 0
+        let totalL = 0
+        for (const m of matches) {
+          const w = isWin(m)
+          if (w) totalW++
+          else totalL++
+          if (m.lobby_type === 7) {
+            if (w) rankedW++
+            else rankedL++
+          }
+        }
+        return { rankedW, rankedL, totalW, totalL }
+      }),
+    [filtered],
+  )
+
+  const MMR_PER_GAME = 25
 
   return (
     <div className="min-h-screen p-4 max-w-[1400px] mx-auto space-y-4">
@@ -357,27 +396,76 @@ export default function Friends() {
           В выбранном окне нет матчей. Раздвинь даты или увеличь лимит.
         </div>
       ) : (
-        <section className="bg-panel border border-border rounded-xl overflow-hidden">
+        <section className="bg-panel border border-border rounded-xl">
           <div
-            className="grid border-b border-border bg-bg sticky top-0 z-10"
-            style={{
-              gridTemplateColumns: `160px repeat(${players.length}, minmax(180px, 1fr))`,
-            }}
+            className="sticky top-0 z-20 bg-panel border-b border-border rounded-t-xl shadow-lg shadow-black/40"
           >
-            <div className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider">
-              День
-            </div>
-            {players.map((p) => (
-              <div
-                key={p.accountId}
-                className="px-3 py-2 text-sm font-semibold truncate border-l border-border"
-                title={p.label}
-              >
-                {p.label}
+            <div
+              className="grid"
+              style={{
+                gridTemplateColumns: `160px repeat(${players.length}, minmax(180px, 1fr))`,
+              }}
+            >
+              <div className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider">
+                День
               </div>
-            ))}
+              {players.map((p) => (
+                <div
+                  key={p.accountId}
+                  className="px-3 py-2 text-sm font-semibold truncate border-l border-border"
+                  title={p.label}
+                >
+                  {p.label}
+                </div>
+              ))}
+            </div>
+            <div
+              className="grid border-t border-border/60"
+              style={{
+                gridTemplateColumns: `160px repeat(${players.length}, minmax(180px, 1fr))`,
+              }}
+            >
+              <div className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-wider">
+                Итог за период
+              </div>
+              {players.map((p, i) => {
+                const s = playerStats[i]
+                if (!s) {
+                  return (
+                    <div
+                      key={p.accountId}
+                      className="px-3 py-1.5 border-l border-border text-[11px] text-zinc-600"
+                    />
+                  )
+                }
+                const delta = (s.rankedW - s.rankedL) * MMR_PER_GAME
+                const deltaColor =
+                  delta > 0
+                    ? 'text-emerald-400'
+                    : delta < 0
+                      ? 'text-rose-400'
+                      : 'text-zinc-500'
+                const mmr = p.mmrEstimate
+                return (
+                  <div
+                    key={p.accountId}
+                    className="px-3 py-1.5 border-l border-border text-[11px] flex items-center gap-2"
+                  >
+                    <span className={`font-semibold tabular-nums ${deltaColor}`}>
+                      {delta > 0 ? `+${delta}` : delta}
+                    </span>
+                    <span className="text-zinc-500 tabular-nums">
+                      {s.rankedW}W–{s.rankedL}L ранкед
+                    </span>
+                    <span className="ml-auto text-zinc-400 tabular-nums">
+                      {mmr != null ? `~${mmr}` : '—'}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
-          <div>
+          <div className="rounded-b-xl overflow-hidden">
             {dayRows.map(({ day, perPlayer }) => (
               <div
                 key={day}

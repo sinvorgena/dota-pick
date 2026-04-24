@@ -47,14 +47,23 @@ function convertSteam64(id: string): string | null {
 export interface SavedPlayer {
   accountId: string
   label: string
+  mmrEstimate?: number | null
 }
 
 const LS_KEY = 'dp:friends:players'
 
+const DEFAULT_PLAYERS: SavedPlayer[] = [
+  { accountId: '314933827', label: 'scion' },
+  { accountId: '117905733', label: 'hope' },
+  { accountId: '471065417', label: '.' },
+  { accountId: '1532997110', label: 'Касамару' },
+  { accountId: '223168818', label: 'iKsaGAM3R' },
+]
+
 export function loadSavedPlayers(): SavedPlayer[] {
   try {
     const raw = localStorage.getItem(LS_KEY)
-    if (!raw) return []
+    if (raw === null) return DEFAULT_PLAYERS
     const parsed = JSON.parse(raw) as unknown
     if (!Array.isArray(parsed)) return []
     return parsed.filter(

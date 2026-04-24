@@ -26,6 +26,11 @@ export interface OpenDotaPlayerProfile {
     personaname: string | null
     avatarfull: string | null
   } | null
+  rank_tier: number | null
+  leaderboard_rank: number | null
+  mmr_estimate: {
+    estimate: number | null
+  } | null
 }
 
 export async function fetchPlayerMatches(
