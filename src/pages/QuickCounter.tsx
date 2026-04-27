@@ -4,46 +4,45 @@ import { useHeroes } from '../hooks/useHeroes'
 import { fetchHeroMatchups, type HeroMatchup } from '../api/matchups'
 import { HeroIcon } from '../components/HeroIcon'
 import type { Hero } from '../types'
+import { getMetaPool, type MetaPosition } from '../data/meta-heroes'
 import clsx from 'clsx'
 
 // ---------------------------------------------------------------------------
-// Position definitions with realistic role weights
+// Position definitions
 // ---------------------------------------------------------------------------
 
 const POSITIONS = [
-  { pos: 1, label: 'Carry', roleHints: ['Carry'] },
-  { pos: 2, label: 'Mid', roleHints: ['Nuker', 'Pusher', 'Escape'] },
-  { pos: 3, label: 'Offlane', roleHints: ['Initiator', 'Durable', 'Disabler'] },
-  { pos: 4, label: 'Soft Sup', roleHints: ['Support', 'Disabler', 'Initiator'] },
-  { pos: 5, label: 'Hard Sup', roleHints: ['Support'] },
+  { pos: 1, label: 'Carry' },
+  { pos: 2, label: 'Mid' },
+  { pos: 3, label: 'Offlane' },
+  { pos: 4, label: 'Soft Sup' },
+  { pos: 5, label: 'Hard Sup' },
 ] as const
 
-// Heroes that are strongly tied to core roles and should almost never appear as support
-const CORE_ONLY_NAMES = new Set([
-  'anti_mage', 'phantom_assassin', 'juggernaut', 'faceless_void', 'spectre',
-  'medusa', 'terrorblade', 'luna', 'morphling', 'slark', 'ursa', 'troll_warlord',
-  'lifestealer', 'phantom_lancer', 'naga_siren', 'broodmother', 'meepo',
-  'alchemist', 'arc_warden', 'templar_assassin', 'storm_spirit', 'ember_spirit',
-  'invoker', 'tinker', 'sniper', 'huskar', 'viper', 'razor', 'drow_ranger',
-  'clinkz', 'weaver', 'riki', 'bloodseeker', 'lone_druid',
-])
-
+/**
+ * Pick a random hero from the meta pool for a given position. Falls back to
+ * any unused hero only if the meta pool is exhausted (shouldn't happen in
+ * practice — pool has 15-30 heroes per position).
+ */
 function pickRandomForPos(
   heroes: Hero[],
-  pos: typeof POSITIONS[number],
+  pos: number,
   exclude: Set<number>,
 ): Hero | null {
-  // For support positions, filter out heroes that are core-only
-  const isSupport = pos.pos >= 4
-  let pool = heroes.filter((h) => {
-    if (exclude.has(h.id)) return false
-    if (isSupport && CORE_ONLY_NAMES.has(h.shortName)) return false
-    return h.roles.some((r) => (pos.roleHints as readonly string[]).includes(r))
-  })
+  const byShort = new Map<string, Hero>()
+  for (const h of heroes) byShort.set(h.shortName, h)
+
+  const metaShortNames = getMetaPool(pos as MetaPosition)
+  const pool = metaShortNames
+    .map((s) => byShort.get(s))
+    .filter((h): h is Hero => !!h && !exclude.has(h.id))
+
   if (pool.length === 0) {
-    pool = heroes.filter((h) => !exclude.has(h.id) && !(isSupport && CORE_ONLY_NAMES.has(h.shortName)))
+    // Catastrophic fallback: any hero not already used
+    const wide = heroes.filter((h) => !exclude.has(h.id))
+    if (wide.length === 0) return null
+    return wide[Math.floor(Math.random() * wide.length)]
   }
-  if (pool.length === 0) return null
   return pool[Math.floor(Math.random() * pool.length)]
 }
 
@@ -112,7 +111,7 @@ export default function QuickCounter() {
     if (!heroes || heroes.length === 0) return
     const posIdx = Math.floor(Math.random() * POSITIONS.length)
     const pos = POSITIONS[posIdx]
-    const hero = pickRandomForPos(heroes, pos, new Set())
+    const hero = pickRandomForPos(heroes, pos.pos, new Set())
     if (!hero) return
     setEnemyId(hero.id)
     setEnemyPos(pos.pos)

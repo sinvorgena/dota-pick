@@ -8,6 +8,7 @@ import Room from './pages/Room'
 import Sandbox from './pages/Sandbox'
 import Solo from './pages/Solo'
 import QuickCounter from './pages/QuickCounter'
+import Matchup from './pages/Matchup'
 import MatchAnalysis from './pages/MatchAnalysis'
 import Friends from './pages/Friends'
 
@@ -23,6 +24,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/sandbox" element={<Sandbox />} />
           <Route path="/solo" element={<Solo />} />
           <Route path="/quick-counter" element={<QuickCounter />} />
+          <Route path="/matchup" element={<Matchup />} />
           <Route path="/match" element={<MatchAnalysis />} />
           <Route path="/friends" element={<Friends />} />
           <Route path="*" element={<Navigate to="/" replace />} />

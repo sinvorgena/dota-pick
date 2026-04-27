@@ -49,6 +49,73 @@ export async function fetchHeroMatchups(heroId: number): Promise<HeroMatchup[]> 
   return ky.get(`${OPEN_DOTA}/heroes/${heroId}/matchups`).json<HeroMatchup[]>()
 }
 
+/**
+ * Returns the entire static Stratz matchup table at once. Useful for the
+ * matchup-builder page that needs vs-data for many heroes simultaneously.
+ */
+export async function fetchAllMatchups(): Promise<Record<number, HeroMatchup[]>> {
+  return loadStratzData()
+}
+
+// ---------------------------------------------------------------------------
+// Position-specific matchups (lane winrate)
+// ---------------------------------------------------------------------------
+
+export type PositionMatchupsByHero = Record<number, HeroMatchup[]>
+export type PositionMatchups = Partial<Record<1 | 2 | 3 | 4 | 5, PositionMatchupsByHero>>
+
+let positionData: PositionMatchups | null = null
+let positionLoading: Promise<PositionMatchups> | null = null
+
+async function loadPositionData(): Promise<PositionMatchups> {
+  if (positionData) return positionData
+  if (positionLoading) return positionLoading
+  positionLoading = (async () => {
+    try {
+      const mod = await import('../data/stratz-position-matchups.json')
+      // Keys come back as strings — coerce values' inner keys to numbers.
+      const raw = mod.default as Record<string, Record<string, HeroMatchup[]> | string>
+      const result: PositionMatchups = {}
+      for (const [posStr, heroMap] of Object.entries(raw)) {
+        if (typeof heroMap !== 'object' || heroMap === null) continue
+        const pos = Number(posStr)
+        if (!(pos >= 1 && pos <= 5)) continue
+        const inner: PositionMatchupsByHero = {}
+        for (const [hidStr, list] of Object.entries(heroMap)) {
+          inner[Number(hidStr)] = list as HeroMatchup[]
+        }
+        result[pos as 1 | 2 | 3 | 4 | 5] = inner
+      }
+      positionData = result
+      return result
+    } catch {
+      console.warn('[matchups] stratz-position-matchups.json missing — lane WR disabled')
+      positionData = {}
+      return {}
+    }
+  })()
+  return positionLoading
+}
+
+/**
+ * Position-specific matchup for a hero played on a given position.
+ * Returns `null` when no position data is available — caller should fall
+ * back to global matchups (`fetchHeroMatchups`) in that case.
+ */
+export async function fetchHeroPositionMatchups(
+  heroId: number,
+  pos: 1 | 2 | 3 | 4 | 5,
+): Promise<HeroMatchup[] | null> {
+  const data = await loadPositionData()
+  const list = data[pos]?.[heroId]
+  if (!list || list.length === 0) return null
+  return list
+}
+
+export async function fetchAllPositionMatchups(): Promise<PositionMatchups> {
+  return loadPositionData()
+}
+
 export interface ExplorerRow {
   match_id: number
   start_time: number

@@ -101,8 +101,13 @@ export default function Home() {
           />
           <MenuCard
             title="Quick Counterpick"
-            description="Случайный герой — выбери контрпик, проверь винрейт"
+            description="Случайный мета-герой — выбери контрпик, проверь винрейт"
             onClick={() => navigate('/quick-counter')}
+          />
+          <MenuCard
+            title="Matchup builder"
+            description="Составь 5v5 из мета-пула — посмотри лайн WR и общий WR"
+            onClick={() => navigate('/matchup')}
           />
         </Section>
 
