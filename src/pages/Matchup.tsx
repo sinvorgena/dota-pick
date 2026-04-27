@@ -108,30 +108,13 @@ export default function Matchup() {
     [visibleSlots],
   )
 
-  // Hero pool — union of meta heroes across the positions involved in the
-  // current mode. For lane = pos 1/3/4/5 (covers both safe and off). For
-  // mid = pos 2 only.
-  const heroPool = useMemo(() => {
-    const positions: Pos[] = mode === 'mid' ? [2] : [1, 3, 4, 5]
-    const seen = new Set<number>()
-    const list: Hero[] = []
-    for (const p of positions) {
-      for (const sn of getMetaPool(p)) {
-        const h = byShortName.get(sn)
-        if (!h || seen.has(h.id)) continue
-        seen.add(h.id)
-        list.push(h)
-      }
-    }
-    list.sort((a, b) => a.localized_name.localeCompare(b.localized_name))
-    return list
-  }, [mode, byShortName])
-
+  // Full hero grid — no meta filtering, user can drag any hero anywhere.
+  // (The meta pool is still used by the "случайно" button below.)
   const grouped = useMemo(() => {
     const m: Record<Hero['primary_attr'], Hero[]> = { str: [], agi: [], int: [], all: [] }
-    for (const h of heroPool) m[h.primary_attr]?.push(h)
+    for (const h of heroes ?? []) m[h.primary_attr]?.push(h)
     return m
-  }, [heroPool])
+  }, [heroes])
 
   // ---------- slot ops ----------
 
@@ -351,11 +334,10 @@ export default function Matchup() {
         <WrCard label="Game WR" wr={gameWr} />
       </div>
 
-      {/* Hero pool grid */}
+      {/* Hero grid — full pool, drag anywhere */}
       <div className="bg-panel border border-border rounded-xl p-3 space-y-2">
-        <div className="text-xs text-zinc-500 uppercase tracking-wider px-1 flex items-center justify-between">
-          <span>Пул героев · перетащи на слот</span>
-          <span className="text-[10px] text-zinc-600 normal-case">{heroPool.length} героев</span>
+        <div className="text-xs text-zinc-500 uppercase tracking-wider px-1">
+          Перетащи героя на слот
         </div>
         <HeroPoolGrid grouped={grouped} disabledIds={usedIds} />
       </div>
