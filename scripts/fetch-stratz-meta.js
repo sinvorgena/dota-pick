@@ -66,13 +66,13 @@
   // bracket = Divine+Immortal. Aggregate over `week` since Stratz bins
   // results — we sum to get a single matchCount/winCount per hero.
   for (const { id, pos } of POSITIONS) {
-    process.stdout?.write?.(`[stratz-meta] Position ${pos}... `)
+    console.log(`[stratz-meta] Position ${pos}...`)
     const json = await gql(`query {
       heroStats {
         winWeek(
-          bracketBasicIds: [DIVINE_IMMORTAL]
+          bracketIds: [DIVINE, IMMORTAL]
           positionIds: [${id}]
-          take: 1500
+          take: 10000
         ) {
           heroId
           matchCount
@@ -97,8 +97,8 @@
     }
     // Sort by matchCount desc — most-picked first, that's "the meta"
     entries.sort((a, b) => b.matchCount - a.matchCount)
-    // Cap at top 30 per position
-    result[pos] = entries.slice(0, 30)
+    // Cap at top 50 per position — covers the long tail of niche picks too
+    result[pos] = entries.slice(0, 50)
     console.log(`pos ${pos}: ${result[pos].length} heroes`)
   }
 
