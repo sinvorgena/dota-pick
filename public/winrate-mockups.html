@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Winrate UI · 11 вариантов</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+    .num { font-variant-numeric: tabular-nums; }
+    .hp { aspect-ratio: 71 / 94; object-fit: cover; }
+    .variant { transition: border-color .15s; }
+    .variant:hover { border-color: rgb(82 82 91); }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+  <div class="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
+
+    <!-- HEADER -->
+    <header class="space-y-3">
+      <h1 class="text-2xl font-bold">Winrate UI · варианты отображения</h1>
+      <p class="text-sm text-zinc-400 max-w-3xl">
+        Слева — <b class="text-zinc-200">Phantom Assassin</b>, справа —
+        <b class="text-zinc-200">Sniper</b>. Двигай слайдер — все 1v1 варианты
+        синхронно меняются. Под ними — multi-pair (5v5) представления с
+        захардкоженными данными.
+      </p>
+      <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center gap-4">
+        <span class="text-[10px] text-zinc-500 uppercase tracking-wider shrink-0">PA vs Sniper</span>
+        <input id="wrSlider" type="range" min="30" max="70" step="0.1" value="54.3"
+               class="flex-1 accent-emerald-500 cursor-pointer" />
+        <span id="wrValue" class="text-xl font-bold num text-emerald-400 w-20 text-right">54.3%</span>
+      </div>
+    </header>
+
+    <!-- 1v1 GRID -->
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+      <!-- 1. Split bar (current) -->
+      <div class="variant bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+        <h3 class="text-sm font-semibold mb-1">1. Split bar (то, что сейчас)</h3>
+        <p class="text-xs text-zinc-500 mb-3">Зелёный/красный сплит. Видно соотношение сил, точное число читается.</p>
+        <div class="flex items-center gap-2">
+          <img class="w-10 hp rounded" src="https://cdn.stratz.com/images/dota2/heroes/phantom_assassin_vert.png" />
+          <div class="flex-1 flex h-7 rounded overflow-hidden text-xs font-bold num">
+            <div data-split="me" class="bg-emerald-600 flex items-center justify-center min-w-[2.5rem]" style="width: 54.3%">54.3%</div>
+            <div data-split="them" class="bg-rose-600 flex items-center justify-center min-w-[2.5rem]" style="width: 45.7%">45.7%</div>
+          </div>
+          <img class="w-10 hp rounded" src="https://cdn.stratz.com/images/dota2/heroes/sniper_vert.png" />
+        </div>
+      </div>
+
+      <!-- 2. Big number with color -->
+      <div class="variant bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+        <h3 class="text-sm font-semibold mb-1">2. Большая цифра + цвет</h3>
+        <p class="text-xs text-zinc-500 mb-3">Минимализм. Один % крупно, цвет = выгода. Сканируется мгновенно.</p>
+        <div class="flex items-center gap-3">
+          <img class="w-12 hp rounded" src="https://cdn.stratz.com/images/dota2/heroes/phantom_assassin_vert.png" />
+          <div class="flex-1 text-center">
+            <div data-big class="text-4xl font-bold num text-emerald-400">54.3%</div>
+            <div class="text-[10px] text-zinc-500 uppercase tracking-wider mt-1">winrate</div>
+          </div>
+          <img class="w-12 hp rounded" src="https://cdn.stratz.com/images/dota2/heroes/sniper_vert.png" />
+        </div>
+      </div>
+
+      <!-- 3. Diverging bar from 50% -->
+      <div class="variant bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+        <h3 class="text-sm font-semibold mb-1">3. Diverging (центр = 50%)</h3>
+        <p class="text-xs text-zinc-500 mb-3">Бар растёт из центра — насколько отклонились от равенства. Edge виден сразу даже при 51%.</p>
+        <div class="flex items-center gap-3">
+          <img class="w-10 hp rounded" src="https://cdn.stratz.com/images/dota2/heroes/phantom_assassin_vert.png" />
+          <div class="flex-1 relative h-8 bg-zinc-800 rounded overflow-hidden">
+            <div class="absolute top-0 bottom-0 left-1/2 w-px bg-zinc-600 z-10"></div>
+            <div data-div="me"   class="absolute top-0 bottom-0 left-1/2 bg-emerald-600 transition-all" style="width: 4.3%"></div>
+            <div data-div="them" class="absolute top-0 bottom-0 right-1/2 bg-rose-600 transition-all" style="width: 0%"></div>
+            <div data-div-label class="relative z-20 h-full flex items-center justify-center text-xs font-bold num">+4.3% PA</div>
+          </div>
+          <img class="w-10 hp rounded" src="https://cdn.stratz.com/images/dota2/heroes/sniper_vert.png" />
+        </div>
+      </div>
+
+      <!-- 4. Tug-of-war marker -->
+      <div class="variant bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+        <h3 class="text-sm font-semibold mb-1">4. Tug-of-war (канатик)</h3>
+        <p class="text-xs text-zinc-500 mb-3">Точка-маркер сдвигается к фавориту. Метафора борьбы — без чтения чисел.</p>
+        <div class="flex items-center gap-3">
+          <img class="w-10 hp rounded" src="https://cdn.stratz.com/images/dota2/heroes/phantom_assassin_vert.png" />
+          <div class="flex-1 relative h-3 rounded-full"
+               style="background: linear-gradient(90deg, rgba(16,185,129,.35), rgba(255,255,255,.05) 50%, rgba(244,63,94,.35))">
+            <div data-tug class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 bg-zinc-100 rounded-full ring-2 ring-zinc-900 transition-all" style="left: 54.3%"></div>
+            <div class="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] text-zinc-600">50%</div>
+          </div>
+          <img class="w-10 hp rounded" src="https://cdn.stratz.com/images/dota2/heroes/sniper_vert.png" />
+        </div>
+      </div>
+
+      <!-- 5. Head-to-head card -->
+      <div class="variant bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+        <h3 class="text-sm font-semibold mb-1">5. Head-to-head card</h3>
+        <p class="text-xs text-zinc-500 mb-3">Большие портреты лицом к лицу + два % по бокам. Эмоциональная подача.</p>
+        <div class="flex items-center gap-2">
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <img class="w-16 hp rounded" src="https://cdn.stratz.com/images/dota2/heroes/phantom_assassin_vert.png" />
+            <div data-h2h="me" class="text-2xl font-bold num text-emerald-400">54.3%</div>
+          </div>
+          <div class="text-zinc-600 font-bold text-sm tracking-widest">VS</div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <img class="w-16 hp rounded" src="https://cdn.stratz.com/images/dota2/heroes/sniper_vert.png" />
+            <div data-h2h="them" class="text-2xl font-bold num text-rose-400">45.7%</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. Donut -->
+      <div class="variant bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+        <h3 class="text-sm font-semibold mb-1">6. Donut</h3>
+        <p class="text-xs text-zinc-500 mb-3">Круговая диаграмма с цифрой по центру. Эстетично, чуть менее информативно при близких значениях.</p>
+        <div class="flex items-center gap-3">
+          <img class="w-10 hp rounded" src="https://cdn.stratz.com/images/dota2/heroes/phantom_assassin_vert.png" />
+          <div class="flex-1 flex items-center justify-center">
+            <svg width="84" height="84" viewBox="0 0 84 84">
+              <circle cx="42" cy="42" r="32" fill="none" stroke="#3f3f46" stroke-width="11" />
+              <circle data-donut-arc cx="42" cy="42" r="32" fill="none" stroke="#10b981" stroke-width="11"
+                stroke-dasharray="201.06" stroke-dashoffset="91.88"
+                transform="rotate(-90 42 42)" stroke-linecap="butt" />
+              <text data-donut-text x="42" y="42" text-anchor="middle" dominant-baseline="central"
+                fill="#10b981" font-size="14" font-weight="bold">54.3%</text>
+            </svg>
+          </div>
+          <img class="w-10 hp rounded" src="https://cdn.stratz.com/images/dota2/heroes/sniper_vert.png" />
+        </div>
+      </div>
+
+      <!-- 7. Vertical bars -->
+      <div class="variant bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+        <h3 class="text-sm font-semibold mb-1">7. Вертикальные бары</h3>
+        <p class="text-xs text-zinc-500 mb-3">Под каждым портретом — столбик высотой = WR. Хорошо когда нужно сравнить много пар подряд.</p>
+        <div class="flex items-end justify-around h-32 gap-3">
+          <div class="flex flex-col items-center gap-1 flex-1">
+            <span data-vbar-label="me" class="text-[10px] num text-emerald-400">54.3%</span>
+            <div data-vbar="me" class="w-12 bg-emerald-600 rounded-t transition-all" style="height: 76px"></div>
+            <img class="w-10 hp rounded" src="https://cdn.stratz.com/images/dota2/heroes/phantom_assassin_vert.png" />
+          </div>
+          <div class="flex flex-col items-center gap-1 flex-1">
+            <span data-vbar-label="them" class="text-[10px] num text-rose-400">45.7%</span>
+            <div data-vbar="them" class="w-12 bg-rose-600 rounded-t transition-all" style="height: 64px"></div>
+            <img class="w-10 hp rounded" src="https://cdn.stratz.com/images/dota2/heroes/sniper_vert.png" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 8. Arrow indicator -->
+      <div class="variant bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+        <h3 class="text-sm font-semibold mb-1">8. Стрелка-индикатор</h3>
+        <p class="text-xs text-zinc-500 mb-3">↑/↓ + дельта от 50%. Похоже на трендовые stock-виджеты.</p>
+        <div class="flex items-center gap-3">
+          <img class="w-10 hp rounded" src="https://cdn.stratz.com/images/dota2/heroes/phantom_assassin_vert.png" />
+          <div class="flex-1 flex items-center gap-3">
+            <span data-arrow-glyph class="text-3xl text-emerald-400 leading-none">↑</span>
+            <div>
+              <div data-arrow-pct class="text-xl font-bold num text-emerald-400 leading-none">54.3%</div>
+              <div data-arrow-delta class="text-[10px] text-zinc-500 num mt-1">+4.3 от 50%</div>
+            </div>
+          </div>
+          <img class="w-10 hp rounded" src="https://cdn.stratz.com/images/dota2/heroes/sniper_vert.png" />
+        </div>
+      </div>
+
+      <!-- 9. Gauge / speedometer -->
+      <div class="variant bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+        <h3 class="text-sm font-semibold mb-1">9. Gauge (полукруг)</h3>
+        <p class="text-xs text-zinc-500 mb-3">Стрелка на полукруговой шкале 0-100%. Узнаваемо как «спидометр».</p>
+        <div class="flex items-center gap-3">
+          <img class="w-10 hp rounded" src="https://cdn.stratz.com/images/dota2/heroes/phantom_assassin_vert.png" />
+          <div class="flex-1 flex items-center justify-center">
+            <svg width="140" height="86" viewBox="0 0 140 86">
+              <path d="M 15 75 A 55 55 0 0 1 125 75" fill="none" stroke="#3f3f46" stroke-width="9" stroke-linecap="round" />
+              <path data-gauge-arc d="M 15 75 A 55 55 0 0 1 125 75" fill="none" stroke="#10b981" stroke-width="9" stroke-linecap="round"
+                pathLength="100" stroke-dasharray="100" stroke-dashoffset="45.7" />
+              <line data-gauge-needle x1="70" y1="75" x2="70" y2="28" stroke="#fff" stroke-width="2" transform="rotate(7.74 70 75)" />
+              <circle cx="70" cy="75" r="4" fill="#fff" />
+              <text data-gauge-text x="70" y="68" text-anchor="middle" fill="#10b981" font-size="14" font-weight="bold">54.3%</text>
+            </svg>
+          </div>
+          <img class="w-10 hp rounded" src="https://cdn.stratz.com/images/dota2/heroes/sniper_vert.png" />
+        </div>
+      </div>
+
+      <!-- 10. Compact row -->
+      <div class="variant bg-zinc-900 border border-zinc-800 rounded-xl p-4 md:col-span-2">
+        <h3 class="text-sm font-semibold mb-1">10. Компактная строка</h3>
+        <p class="text-xs text-zinc-500 mb-3">Одна строка с градиентом-фоном по WR. Идеально для длинных списков матчапов / сводок.</p>
+        <div data-row-bg class="rounded h-10 px-2 flex items-center gap-2 transition-colors">
+          <img class="w-7 hp rounded" src="https://cdn.stratz.com/images/dota2/heroes/phantom_assassin_vert.png" />
+          <span class="text-xs flex-1">Phantom Assassin <span class="text-zinc-500">vs</span> Sniper</span>
+          <span data-row-pct class="text-sm font-bold num text-emerald-400">54.3%</span>
+          <img class="w-7 hp rounded" src="https://cdn.stratz.com/images/dota2/heroes/sniper_vert.png" />
+        </div>
+      </div>
+
+    </section>
+
+    <!-- MULTI-PAIR HEADER -->
+    <header class="pt-6 border-t border-zinc-800">
+      <h2 class="text-lg font-bold mb-1">5v5 · многопарные представления</h2>
+      <p class="text-sm text-zinc-400">
+        Захардкожен полный матчап (PA/CM/SF/Mars/Tusk vs Sniper/Lion/Invoker/Tide/Earth).
+      </p>
+    </header>
+
+    <section class="space-y-3">
+
+      <!-- 11. Lane summary -->
+      <div class="variant bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+        <h3 class="text-sm font-semibold mb-1">11. Сводка по лайнам</h3>
+        <p class="text-xs text-zinc-500 mb-3">3 лайны + общий итог. Главный кейс для матчап-билдера — лайн-фаза + общая игра в одном экране.</p>
+        <div id="laneSummary" class="space-y-2"></div>
+      </div>
+
+      <!-- 12. Matchup matrix -->
+      <div class="variant bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+        <h3 class="text-sm font-semibold mb-1">12. Матрица 5×5</h3>
+        <p class="text-xs text-zinc-500 mb-3">Каждая ячейка — пара мой×враг с цветом по WR. Полная картина, требует пары секунд на чтение.</p>
+        <div id="matrix" class="overflow-auto"></div>
+      </div>
+
+      <!-- 13. Per-pair list -->
+      <div class="variant bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+        <h3 class="text-sm font-semibold mb-1">13. Список всех пар</h3>
+        <p class="text-xs text-zinc-500 mb-3">25 строк, каждая = матчап одного из моих vs одного из вражеских. Подробно, длинно.</p>
+        <div id="pairList" class="space-y-1 max-h-[480px] overflow-auto pr-2"></div>
+      </div>
+
+    </section>
+
+    <footer class="text-xs text-zinc-600 pt-4 pb-12 text-center">
+      Подсветка: ≥52% — зелёный, ≤48% — красный, между — нейтральный.
+      Данные синтетические, цифры для демонстрации.
+    </footer>
+  </div>
+
+<script>
+  // -------------------------------------------------------------------------
+  // Sync 1v1 widgets to slider
+  // -------------------------------------------------------------------------
+  const slider = document.getElementById('wrSlider')
+  const wrValue = document.getElementById('wrValue')
+
+  function colorClass(wr) {
+    if (wr >= 52) return 'text-emerald-400'
+    if (wr <= 48) return 'text-rose-400'
+    return 'text-zinc-300'
+  }
+  function strokeForWr(wr) {
+    if (wr >= 52) return '#10b981'
+    if (wr <= 48) return '#f43f5e'
+    return '#a1a1aa'
+  }
+
+  function updateAll() {
+    const me = parseFloat(slider.value)
+    const them = 100 - me
+    const meTxt = me.toFixed(1) + '%'
+    const themTxt = them.toFixed(1) + '%'
+    const myColor = colorClass(me)
+    const myStroke = strokeForWr(me)
+
+    // Header value
+    wrValue.textContent = meTxt
+    wrValue.className = 'text-xl font-bold num w-20 text-right ' + myColor
+
+    // 1. Split bar
+    document.querySelectorAll('[data-split="me"]').forEach(el => {
+      el.style.width = me + '%'
+      el.textContent = meTxt
+    })
+    document.querySelectorAll('[data-split="them"]').forEach(el => {
+      el.style.width = them + '%'
+      el.textContent = themTxt
+    })
+
+    // 2. Big number
+    document.querySelectorAll('[data-big]').forEach(el => {
+      el.textContent = meTxt
+      el.className = 'text-4xl font-bold num ' + myColor
+    })
+
+    // 3. Diverging bar
+    const delta = me - 50
+    document.querySelectorAll('[data-div="me"]').forEach(el => {
+      el.style.width = Math.max(0, delta) + '%'
+    })
+    document.querySelectorAll('[data-div="them"]').forEach(el => {
+      el.style.width = Math.max(0, -delta) + '%'
+    })
+    document.querySelectorAll('[data-div-label]').forEach(el => {
+      const sign = delta >= 0 ? '+' : ''
+      const who = delta >= 0 ? 'PA' : 'Sniper'
+      el.textContent = sign + delta.toFixed(1) + '% ' + who
+    })
+
+    // 4. Tug-of-war
+    document.querySelectorAll('[data-tug]').forEach(el => {
+      el.style.left = me + '%'
+    })
+
+    // 5. H2H
+    document.querySelectorAll('[data-h2h="me"]').forEach(el => {
+      el.textContent = meTxt
+      el.className = 'text-2xl font-bold num ' + myColor
+    })
+    document.querySelectorAll('[data-h2h="them"]').forEach(el => {
+      el.textContent = themTxt
+      el.className = 'text-2xl font-bold num ' + colorClass(them)
+    })
+
+    // 6. Donut
+    const circumference = 2 * Math.PI * 32 // r=32
+    document.querySelectorAll('[data-donut-arc]').forEach(el => {
+      el.setAttribute('stroke-dasharray', String(circumference))
+      el.setAttribute('stroke-dashoffset', String(circumference * (1 - me / 100)))
+      el.setAttribute('stroke', myStroke)
+    })
+    document.querySelectorAll('[data-donut-text]').forEach(el => {
+      el.textContent = meTxt
+      el.setAttribute('fill', myStroke)
+    })
+
+    // 7. Vertical bars (max 110px)
+    document.querySelectorAll('[data-vbar="me"]').forEach(el => {
+      el.style.height = (me * 1.1) + 'px'
+    })
+    document.querySelectorAll('[data-vbar="them"]').forEach(el => {
+      el.style.height = (them * 1.1) + 'px'
+    })
+    document.querySelectorAll('[data-vbar-label="me"]').forEach(el => {
+      el.textContent = meTxt
+      el.className = 'text-[10px] num ' + myColor
+    })
+    document.querySelectorAll('[data-vbar-label="them"]').forEach(el => {
+      el.textContent = themTxt
+      el.className = 'text-[10px] num ' + colorClass(them)
+    })
+
+    // 8. Arrow
+    document.querySelectorAll('[data-arrow-glyph]').forEach(el => {
+      el.textContent = me >= 50 ? '↑' : '↓'
+      el.className = 'text-3xl leading-none ' + myColor
+    })
+    document.querySelectorAll('[data-arrow-pct]').forEach(el => {
+      el.textContent = meTxt
+      el.className = 'text-xl font-bold num leading-none ' + myColor
+    })
+    document.querySelectorAll('[data-arrow-delta]').forEach(el => {
+      const sign = delta >= 0 ? '+' : ''
+      el.textContent = sign + delta.toFixed(1) + ' от 50%'
+    })
+
+    // 9. Gauge (semicircle, 0-100% maps to 180° from -90° to +90°)
+    const angle = -90 + (me / 100) * 180
+    document.querySelectorAll('[data-gauge-needle]').forEach(el => {
+      el.setAttribute('transform', `rotate(${angle.toFixed(2)} 70 75)`)
+    })
+    document.querySelectorAll('[data-gauge-arc]').forEach(el => {
+      el.setAttribute('stroke-dashoffset', String(100 - me))
+      el.setAttribute('stroke', myStroke)
+    })
+    document.querySelectorAll('[data-gauge-text]').forEach(el => {
+      el.textContent = meTxt
+      el.setAttribute('fill', myStroke)
+    })
+
+    // 10. Compact row
+    document.querySelectorAll('[data-row-bg]').forEach(el => {
+      const t = (me - 50) / 20 // -1 to +1 over [30,70]
+      const r = me >= 50
+        ? `linear-gradient(90deg, rgba(16,185,129,${.15 + Math.max(0, t) * .35}), rgba(16,185,129,.04))`
+        : `linear-gradient(90deg, rgba(244,63,94,.04), rgba(244,63,94,${.15 + Math.max(0, -t) * .35}))`
+      el.style.background = r
+    })
+    document.querySelectorAll('[data-row-pct]').forEach(el => {
+      el.textContent = meTxt
+      el.className = 'text-sm font-bold num ' + myColor
+    })
+  }
+
+  slider.addEventListener('input', updateAll)
+  updateAll()
+
+  // -------------------------------------------------------------------------
+  // Multi-pair fixture & renderers
+  // -------------------------------------------------------------------------
+  const PORTRAIT = (sn) => `https://cdn.stratz.com/images/dota2/heroes/${sn}_vert.png`
+
+  const ME = [
+    { pos: 1, label: 'Carry',    sn: 'phantom_assassin', name: 'PA' },
+    { pos: 5, label: 'Hard Sup', sn: 'crystal_maiden',   name: 'CM' },
+    { pos: 2, label: 'Mid',      sn: 'nevermore',        name: 'SF' },
+    { pos: 3, label: 'Offlane',  sn: 'mars',             name: 'Mars' },
+    { pos: 4, label: 'Soft Sup', sn: 'tusk',             name: 'Tusk' },
+  ]
+  const EN = [
+    { pos: 1, label: 'Carry',    sn: 'sniper',       name: 'Sniper' },
+    { pos: 5, label: 'Hard Sup', sn: 'lion',         name: 'Lion' },
+    { pos: 2, label: 'Mid',      sn: 'invoker',      name: 'Invoker' },
+    { pos: 3, label: 'Offlane',  sn: 'tidehunter',   name: 'Tide' },
+    { pos: 4, label: 'Soft Sup', sn: 'earth_spirit', name: 'ES' },
+  ]
+
+  // 5x5 winrates (my vs enemy), my-perspective. Random-ish numbers, but
+  // tilted to make the demo readable.
+  const WR = [
+    // PA vs: Sniper, Lion, Invoker, Tide, ES
+    [54.3, 51.0, 47.5, 49.2, 50.7],
+    // CM vs: ...
+    [49.8, 50.5, 48.9, 51.4, 52.1],
+    // SF vs: ...
+    [48.2, 49.4, 46.8, 53.1, 51.9],
+    // Mars vs: ...
+    [50.1, 51.7, 52.4, 53.5, 50.0],
+    // Tusk vs: ...
+    [51.6, 50.8, 49.1, 52.0, 51.3],
+  ]
+
+  // Lane mappings — which my-positions form a lane vs which enemy-positions.
+  const LANES = [
+    { label: 'Safe (мы) ↔ Off (враг)', mine: [1, 5], theirs: [3, 4] },
+    { label: 'Mid', mine: [2], theirs: [2] },
+    { label: 'Off (мы) ↔ Safe (враг)', mine: [3, 4], theirs: [1, 5] },
+  ]
+
+  function wrFor(myPos, enPos) {
+    const mi = ME.findIndex(m => m.pos === myPos)
+    const ei = EN.findIndex(e => e.pos === enPos)
+    if (mi < 0 || ei < 0) return null
+    return WR[mi][ei]
+  }
+
+  function bgFor(wr) {
+    if (wr >= 53) return 'bg-emerald-700/60 text-emerald-200'
+    if (wr >= 51) return 'bg-emerald-700/30 text-emerald-300'
+    if (wr <= 47) return 'bg-rose-700/60 text-rose-200'
+    if (wr <= 49) return 'bg-rose-700/30 text-rose-300'
+    return 'bg-zinc-800/50 text-zinc-300'
+  }
+
+  // ----- 11. Lane summary -----
+  function renderLaneSummary() {
+    const root = document.getElementById('laneSummary')
+    let html = ''
+    let allWrs = []
+    for (const lane of LANES) {
+      const wrs = []
+      for (const mp of lane.mine) for (const tp of lane.theirs) {
+        const wr = wrFor(mp, tp)
+        if (wr != null) wrs.push(wr)
+      }
+      const avg = wrs.reduce((s, x) => s + x, 0) / wrs.length
+      allWrs.push(...wrs)
+      html += `
+        <div class="bg-zinc-950 rounded-lg p-3 flex items-center gap-3">
+          <div class="text-[10px] text-zinc-500 uppercase tracking-wider w-32 shrink-0">${lane.label}</div>
+          <div class="flex gap-1">
+            ${lane.mine.map(p => `<img class="w-6 hp rounded" src="${PORTRAIT(ME.find(m=>m.pos===p).sn)}" />`).join('')}
+          </div>
+          <div class="flex-1 flex h-6 rounded overflow-hidden text-[11px] font-bold num">
+            <div class="bg-emerald-600 flex items-center justify-center min-w-[2.5rem]" style="width: ${avg}%">${avg.toFixed(1)}%</div>
+            <div class="bg-rose-600 flex items-center justify-center min-w-[2.5rem]" style="width: ${100-avg}%">${(100-avg).toFixed(1)}%</div>
+          </div>
+          <div class="flex gap-1">
+            ${lane.theirs.map(p => `<img class="w-6 hp rounded" src="${PORTRAIT(EN.find(e=>e.pos===p).sn)}" />`).join('')}
+          </div>
+        </div>
+      `
+    }
+    const overall = allWrs.reduce((s, x) => s + x, 0) / allWrs.length
+    html += `
+      <div class="bg-zinc-800 rounded-lg p-3 flex items-center gap-3 mt-2">
+        <div class="text-[10px] text-zinc-400 uppercase tracking-wider w-32 shrink-0 font-bold">Game WR</div>
+        <div class="flex-1 flex h-7 rounded overflow-hidden text-xs font-bold num">
+          <div class="bg-emerald-600 flex items-center justify-center min-w-[2.5rem]" style="width: ${overall}%">${overall.toFixed(1)}%</div>
+          <div class="bg-rose-600 flex items-center justify-center min-w-[2.5rem]" style="width: ${100-overall}%">${(100-overall).toFixed(1)}%</div>
+        </div>
+      </div>
+    `
+    root.innerHTML = html
+  }
+
+  // ----- 12. Matrix 5x5 -----
+  function renderMatrix() {
+    const root = document.getElementById('matrix')
+    let html = `<table class="border-collapse mx-auto"><thead><tr><th></th>`
+    for (const e of EN) {
+      html += `<th class="p-1"><img class="w-9 hp rounded mx-auto" src="${PORTRAIT(e.sn)}" title="${e.name}" /><div class="text-[9px] text-zinc-500 mt-1">${e.pos}</div></th>`
+    }
+    html += `</tr></thead><tbody>`
+    for (const m of ME) {
+      html += `<tr><td class="p-1 text-right"><img class="w-9 hp rounded inline-block" src="${PORTRAIT(m.sn)}" title="${m.name}" /><div class="text-[9px] text-zinc-500">${m.pos}</div></td>`
+      for (const e of EN) {
+        const wr = wrFor(m.pos, e.pos)
+        html += `<td class="p-0.5"><div class="${bgFor(wr)} text-xs font-bold num w-14 h-9 flex items-center justify-center rounded">${wr.toFixed(1)}%</div></td>`
+      }
+      html += `</tr>`
+    }
+    html += `</tbody></table>`
+    root.innerHTML = html
+  }
+
+  // ----- 13. Pair list -----
+  function renderPairList() {
+    const root = document.getElementById('pairList')
+    let html = ''
+    for (const m of ME) {
+      for (const e of EN) {
+        const wr = wrFor(m.pos, e.pos)
+        const cls = wr >= 52 ? 'text-emerald-400' : wr <= 48 ? 'text-rose-400' : 'text-zinc-300'
+        html += `
+          <div class="flex items-center gap-2 px-2 py-1 rounded hover:bg-zinc-800/40">
+            <img class="w-7 hp rounded" src="${PORTRAIT(m.sn)}" />
+            <span class="text-[11px] text-zinc-400 w-32 truncate">${m.name} <span class="text-zinc-600">(${m.pos})</span></span>
+            <div class="flex-1 flex h-4 rounded overflow-hidden">
+              <div class="bg-emerald-600/80" style="width: ${wr}%"></div>
+              <div class="bg-rose-600/80" style="width: ${100-wr}%"></div>
+            </div>
+            <span class="text-[11px] text-zinc-400 w-32 truncate text-right">${e.name} <span class="text-zinc-600">(${e.pos})</span></span>
+            <img class="w-7 hp rounded" src="${PORTRAIT(e.sn)}" />
+            <span class="${cls} text-xs font-bold num w-14 text-right">${wr.toFixed(1)}%</span>
+          </div>
+        `
+      }
+    }
+    root.innerHTML = html
+  }
+
+  renderLaneSummary()
+  renderMatrix()
+  renderPairList()
+</script>
+</body>
+</html>

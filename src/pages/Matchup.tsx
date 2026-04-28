@@ -2,14 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Link } from 'react-router-dom'
 import clsx from 'clsx'
 import { useHeroes } from '../hooks/useHeroes'
-import {
-  fetchAllMatchups,
-  fetchAllPositionMatchups,
-  type HeroMatchup,
-  type PositionMatchups,
-} from '../api/matchups'
+import { fetchAllMatchups, type HeroMatchup } from '../api/matchups'
 import { HeroIcon } from '../components/HeroIcon'
-import { getMetaPool } from '../data/meta-heroes'
+import { getMetaPool, getMetaStats, type MetaPosition } from '../data/meta-heroes'
 import type { Hero } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -73,11 +68,9 @@ export default function Matchup() {
   const [mySide, setMySide] = useState<LaneSide>('safe')
   const [slots, setSlots] = useState<Partial<Record<SlotKey, number>>>({})
   const [allMatchups, setAllMatchups] = useState<Record<number, HeroMatchup[]> | null>(null)
-  const [posMatchups, setPosMatchups] = useState<PositionMatchups | null>(null)
 
   useEffect(() => {
     fetchAllMatchups().then(setAllMatchups).catch(() => setAllMatchups({}))
-    fetchAllPositionMatchups().then(setPosMatchups).catch(() => setPosMatchups({}))
   }, [])
 
   const byShortName = useMemo(() => {
@@ -159,21 +152,8 @@ export default function Matchup() {
 
   // ---------- WR helpers ----------
 
-  /** Lane WR of `myHeroId` on `myPos` vs `enemyHeroId` (my-perspective). */
-  const getLaneWr = useCallback(
-    (myH: number, myPos: Pos, enH: number): number | null => {
-      if (!posMatchups) return null
-      const list = posMatchups[myPos]?.[myH]
-      if (!list) return null
-      const m = list.find((x) => x.hero_id === enH)
-      if (!m || m.games_played === 0) return null
-      return m.wins / m.games_played
-    },
-    [posMatchups],
-  )
-
-  /** Global WR of `myHeroId` vs `enemyHeroId` (my-perspective). */
-  const getGameWr = useCallback(
+  /** Pair-level matchup WR of `myH` vs `enH`, my-perspective. */
+  const getPairWr = useCallback(
     (myH: number, enH: number): number | null => {
       if (!allMatchups) return null
       const list = allMatchups[myH]
@@ -185,55 +165,95 @@ export default function Matchup() {
     [allMatchups],
   )
 
+  /**
+   * Approximate "overall WR of hero `heroId` in role `pos`".
+   *
+   * Source priority:
+   *   1) `meta-stats.json` per-position win/match counts (if `fetch-stratz-meta.js`
+   *      was run) — this is true position-aware overall WR.
+   *   2) Fallback: weighted sum of all global matchups for the hero (proxy
+   *      for general "how well does hero do" — position-agnostic).
+   */
+  const getOverallWr = useCallback(
+    (heroId: number, pos: Pos): number | null => {
+      const hero = byId[heroId]
+      if (hero) {
+        const metaList = getMetaStats(pos as MetaPosition)
+        const m = metaList.find((e) => e.shortName === hero.shortName)
+        if (m && m.matchCount > 0) return m.winCount / m.matchCount
+      }
+      // Fallback: collapse all matchup pairs into one overall WR
+      const list = allMatchups?.[heroId]
+      if (!list || list.length === 0) return null
+      let games = 0
+      let wins = 0
+      for (const x of list) {
+        games += x.games_played
+        wins += x.wins
+      }
+      if (games === 0) return null
+      return wins / games
+    },
+    [byId, allMatchups],
+  )
+
   const myConfigs = config.filter((c) => c.side === 'my')
   const enemyConfigs = config.filter((c) => c.side === 'enemy')
 
-  // Lane WR — averaged over my×enemy hero pairs in the current config.
-  // If position-matchups data is missing for a pair, fall back to global WR
-  // so the user always gets a number (with an inline note).
+  /**
+   * Lane WR — average of pair-level matchups (my×enemy) on the current
+   * lane. Sensitive to *who* the enemy picked: Medusa-vs-Tide and
+   * Medusa-vs-Axe give different numbers.
+   */
   const laneWr = useMemo(() => {
     const wrs: number[] = []
-    let usedFallback = false
     for (const mc of myConfigs) {
       const myH = visibleSlots[slotKey('my', mc.pos)]
       if (!myH) continue
       for (const ec of enemyConfigs) {
         const enH = visibleSlots[slotKey('enemy', ec.pos)]
         if (!enH) continue
-        const lwr = getLaneWr(myH, mc.pos, enH)
-        if (lwr != null) {
-          wrs.push(lwr)
-        } else {
-          const gwr = getGameWr(myH, enH)
-          if (gwr != null) {
-            wrs.push(gwr)
-            usedFallback = true
-          }
-        }
+        const w = getPairWr(myH, enH)
+        if (w != null) wrs.push(w)
       }
     }
     if (wrs.length === 0) return null
-    return {
-      value: wrs.reduce((s, x) => s + x, 0) / wrs.length,
-      fallback: usedFallback,
-    }
-  }, [visibleSlots, myConfigs, enemyConfigs, getLaneWr, getGameWr])
+    return { value: wrs.reduce((s, x) => s + x, 0) / wrs.length, pairs: wrs.length }
+  }, [visibleSlots, myConfigs, enemyConfigs, getPairWr])
 
+  /**
+   * Game WR — team-strength comparison. Uses each hero's overall WR in
+   * their role (NOT a pair matchup). Captures "are my picks just better
+   * meta-wise than theirs", independent of who-vs-who.
+   *
+   * Predicted WR = 0.5 + (avg(my overall WR) - avg(enemy overall WR)).
+   * Both avgs are around 0.50 so the diff is small (typ. ±0.03).
+   */
   const gameWr = useMemo(() => {
-    const wrs: number[] = []
+    const myWrs: number[] = []
+    const enWrs: number[] = []
     for (const mc of myConfigs) {
-      const myH = visibleSlots[slotKey('my', mc.pos)]
-      if (!myH) continue
-      for (const ec of enemyConfigs) {
-        const enH = visibleSlots[slotKey('enemy', ec.pos)]
-        if (!enH) continue
-        const wr = getGameWr(myH, enH)
-        if (wr != null) wrs.push(wr)
-      }
+      const h = visibleSlots[slotKey('my', mc.pos)]
+      if (!h) continue
+      const w = getOverallWr(h, mc.pos)
+      if (w != null) myWrs.push(w)
     }
-    if (wrs.length === 0) return null
-    return wrs.reduce((s, x) => s + x, 0) / wrs.length
-  }, [visibleSlots, myConfigs, enemyConfigs, getGameWr])
+    for (const ec of enemyConfigs) {
+      const h = visibleSlots[slotKey('enemy', ec.pos)]
+      if (!h) continue
+      const w = getOverallWr(h, ec.pos)
+      if (w != null) enWrs.push(w)
+    }
+    if (myWrs.length === 0 || enWrs.length === 0) return null
+    const myAvg = myWrs.reduce((s, x) => s + x, 0) / myWrs.length
+    const enAvg = enWrs.reduce((s, x) => s + x, 0) / enWrs.length
+    const predicted = 0.5 + (myAvg - enAvg)
+    return {
+      value: Math.max(0, Math.min(1, predicted)),
+      myAvg,
+      enAvg,
+    }
+  }, [visibleSlots, myConfigs, enemyConfigs, getOverallWr])
 
   if (isLoading || !heroes) {
     return <div className="p-6 text-zinc-400">Загрузка героев...</div>
@@ -323,15 +343,23 @@ export default function Matchup() {
       {/* WR cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <WrCard
-          label={mode === 'mid' ? 'Lane WR (mid)' : 'Lane WR'}
+          label={mode === 'mid' ? 'Lane WR (1×1)' : 'Lane WR'}
           wr={laneWr?.value ?? null}
           subtitle={
-            laneWr?.fallback
-              ? 'нет lane-данных, используем global matchup'
-              : undefined
+            laneWr
+              ? `matchup моих vs их · ${laneWr.pairs} ${laneWr.pairs === 1 ? 'пара' : 'пар'}`
+              : 'пары героев на лайне'
           }
         />
-        <WrCard label="Game WR" wr={gameWr} />
+        <WrCard
+          label="Game WR"
+          wr={gameWr?.value ?? null}
+          subtitle={
+            gameWr
+              ? `сила команд: мои ${(gameWr.myAvg * 100).toFixed(1)}% vs их ${(gameWr.enAvg * 100).toFixed(1)}% (overall в роли)`
+              : 'overall WR героев в их ролях'
+          }
+        />
       </div>
 
       {/* Hero grid — full pool, drag anywhere */}
