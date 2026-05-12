@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useQueries } from '@tanstack/react-query'
+import { useQueries, type UseQueryResult } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { useHeroes } from '../hooks/useHeroes'
 import {
+  fetchPlayerHeroStats,
   fetchPlayerMatches,
   fetchPlayerProfile,
+  type OpenDotaPlayerHeroStat,
   type OpenDotaPlayerMatch,
 } from '../api/playerMatches'
 import {
@@ -76,6 +78,7 @@ export default function Friends() {
   const [limit, setLimit] = useState<MatchLimit>(100)
   const [winsOnly, setWinsOnly] = useState(false)
   const [teamOnly, setTeamOnly] = useState(false)
+  const [heroStatsPeriod, setHeroStatsPeriod] = useState<30 | 365>(30)
 
   const [isNarrow, setIsNarrow] = useState(
     () => typeof window !== 'undefined' && window.innerWidth < 640,
@@ -156,6 +159,14 @@ export default function Friends() {
       queryKey: ['player-matches', p.accountId, limit],
       queryFn: () => fetchPlayerMatches(p.accountId, limit),
       staleTime: 1000 * 60 * 5,
+    })),
+  })
+
+  const heroStatQueries = useQueries({
+    queries: players.map((p) => ({
+      queryKey: ['player-hero-stats', p.accountId, heroStatsPeriod],
+      queryFn: () => fetchPlayerHeroStats(p.accountId, heroStatsPeriod),
+      staleTime: 1000 * 60 * 10,
     })),
   })
 
@@ -479,6 +490,16 @@ export default function Friends() {
         </div>
       )}
 
+      {players.length > 0 && (
+        <HeroLeaderboard
+          players={players}
+          queries={heroStatQueries}
+          heroesById={heroesById}
+          period={heroStatsPeriod}
+          setPeriod={setHeroStatsPeriod}
+        />
+      )}
+
       {players.length === 0 ? (
         <div className="bg-panel border border-border rounded-xl p-10 text-center text-zinc-500">
           Добавь хотя бы одного игрока, чтобы увидеть таблицу игр.
@@ -632,6 +653,191 @@ export default function Friends() {
           })}
         </section>
       )}
+    </div>
+  )
+}
+
+interface HeroDelta {
+  heroId: number
+  games: number
+  win: number
+  loss: number
+  delta: number // (win − loss) × MMR_PER_GAME
+  winrate: number
+}
+
+function computeHeroDeltas(stats: OpenDotaPlayerHeroStat[]): HeroDelta[] {
+  const out: HeroDelta[] = []
+  for (const s of stats) {
+    const games = s.games
+    if (games === 0) continue
+    const win = s.win
+    const loss = games - win
+    out.push({
+      heroId: Number(s.hero_id),
+      games,
+      win,
+      loss,
+      delta: (win - loss) * MMR_PER_GAME,
+      winrate: win / games,
+    })
+  }
+  return out
+}
+
+function HeroLeaderboard({
+  players,
+  queries,
+  heroesById,
+  period,
+  setPeriod,
+}: {
+  players: SavedPlayer[]
+  queries: UseQueryResult<OpenDotaPlayerHeroStat[], Error>[]
+  heroesById: Record<number, Hero>
+  period: 30 | 365
+  setPeriod: (p: 30 | 365) => void
+}) {
+  const anyLoading = queries.some((q) => q.isLoading)
+  return (
+    <section className="bg-panel border border-border rounded-xl p-3 sm:p-4 space-y-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="text-sm font-semibold">Топ героев по ±MMR</div>
+        <div className="flex gap-1 ml-auto">
+          {([30, 365] as const).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={clsx(
+                'text-xs rounded px-3 py-1.5 transition',
+                period === p
+                  ? 'bg-emerald-700 text-white'
+                  : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200',
+              )}
+            >
+              {p === 30 ? 'Месяц' : 'Год'}
+            </button>
+          ))}
+        </div>
+      </div>
+      {anyLoading ? (
+        <div className="text-zinc-500 text-sm">Загрузка статистики...</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {players.map((p, i) => {
+            const q = queries[i]
+            const stats = q.data ?? []
+            const deltas = computeHeroDeltas(stats)
+            // Top 3 by positive delta (most MMR gained), top 3 by negative
+            // (most MMR lost). Heroes with 0 delta show up in neither list.
+            const winners = [...deltas]
+              .filter((x) => x.delta > 0)
+              .sort((a, b) => b.delta - a.delta)
+              .slice(0, 3)
+            const losers = [...deltas]
+              .filter((x) => x.delta < 0)
+              .sort((a, b) => a.delta - b.delta)
+              .slice(0, 3)
+            const totalDelta = deltas.reduce((s, d) => s + d.delta, 0)
+            return (
+              <div
+                key={p.accountId}
+                className="bg-bg border border-border rounded-lg p-3 space-y-2 min-w-0"
+              >
+                <div className="flex items-baseline gap-2">
+                  <div className="font-semibold truncate text-sm">{p.label}</div>
+                  <div
+                    className={clsx(
+                      'text-xs font-bold tabular-nums ml-auto shrink-0',
+                      totalDelta > 0
+                        ? 'text-emerald-400'
+                        : totalDelta < 0
+                          ? 'text-rose-400'
+                          : 'text-zinc-500',
+                    )}
+                  >
+                    {totalDelta > 0 ? `+${totalDelta}` : totalDelta} MMR
+                  </div>
+                </div>
+                {q.error && (
+                  <div className="text-xs text-rose-400">
+                    OpenDota не отдал статистику
+                  </div>
+                )}
+                <HeroDeltaList
+                  title="принесли"
+                  variant="win"
+                  list={winners}
+                  heroesById={heroesById}
+                />
+                <HeroDeltaList
+                  title="отняли"
+                  variant="loss"
+                  list={losers}
+                  heroesById={heroesById}
+                />
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function HeroDeltaList({
+  title,
+  variant,
+  list,
+  heroesById,
+}: {
+  title: string
+  variant: 'win' | 'loss'
+  list: HeroDelta[]
+  heroesById: Record<number, Hero>
+}) {
+  if (list.length === 0) {
+    return (
+      <div className="text-[11px] text-zinc-600 italic">
+        {variant === 'win' ? 'нет героев в плюсе' : 'нет героев в минусе'}
+      </div>
+    )
+  }
+  return (
+    <div className="space-y-1">
+      <div className="text-[10px] uppercase tracking-wider text-zinc-500">
+        {title}
+      </div>
+      {list.map((h) => {
+        const hero = heroesById[h.heroId]
+        return (
+          <div key={h.heroId} className="flex items-center gap-2 min-w-0">
+            {hero ? (
+              <div className="w-8 shrink-0">
+                <HeroIcon hero={hero} variant="portrait" />
+              </div>
+            ) : (
+              <div className="w-8 h-[42px] shrink-0 bg-zinc-800 rounded" />
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="text-[11px] truncate">
+                {hero?.localized_name ?? `Hero ${h.heroId}`}
+              </div>
+              <div className="text-[10px] text-zinc-500 tabular-nums">
+                {h.win}W–{h.loss}L · {(h.winrate * 100).toFixed(0)}%
+              </div>
+            </div>
+            <div
+              className={clsx(
+                'text-xs font-bold tabular-nums shrink-0',
+                variant === 'win' ? 'text-emerald-400' : 'text-rose-400',
+              )}
+            >
+              {h.delta > 0 ? `+${h.delta}` : h.delta}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }

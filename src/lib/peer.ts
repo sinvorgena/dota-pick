@@ -20,8 +20,10 @@ export type PeerMessage =
   | { type: 'state'; draft: DraftState }
   | { type: 'reset' }
 
-// Firebase config — Realtime DB only, no auth required (test rules allow
-// anonymous read/write until 2026-05-07).
+// Firebase config — Realtime DB only, no auth required.
+// RTDB rules are managed via the Firebase console; the canonical rule set
+// lives in `database.rules.json` at the repo root. Rooms are write-only
+// under /rooms/{[A-Za-z0-9]+}, everything else is denied.
 const FIREBASE_DB_URL =
   'https://dota-pick-159ba-default-rtdb.europe-west1.firebasedatabase.app'
 
